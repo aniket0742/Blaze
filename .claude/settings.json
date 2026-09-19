@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Users/ayush/8x-amazon-clone/.claude/hooks/capture-prompt.js\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Users/ayush/8x-amazon-clone/.claude/hooks/capture-stop.js\""
+          }
+        ]
+      }
+    ]
+  }
+}
