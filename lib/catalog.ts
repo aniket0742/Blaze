@@ -26,6 +26,11 @@ export async function getBestDeals(limit: number) {
   return db.select().from(products).orderBy(desc(products.discountPercentage)).limit(limit);
 }
 
+/** Most recently added products, used for the New Arrivals rail. */
+export async function getNewArrivals(limit: number) {
+  return db.select().from(products).orderBy(desc(products.createdAt)).limit(limit);
+}
+
 export async function getCategory(slug: string) {
   const [category] = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
   return category ?? null;

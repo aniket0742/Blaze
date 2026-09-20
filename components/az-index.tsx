@@ -25,7 +25,7 @@ export function AzIndex({ categories }: { categories: Category[] }) {
             <a
               key={letter}
               href={`#letter-${letter}`}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle text-sm font-medium transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-700/20"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle text-sm font-medium transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600"
             >
               {letter}
             </a>
@@ -41,28 +41,23 @@ export function AzIndex({ categories }: { categories: Category[] }) {
         })}
       </div>
 
-      <div className="mt-8 space-y-8">
+      <div className="mt-5 space-y-4">
         {[...byLetter.entries()]
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([letter, items]) => (
-            <div key={letter} id={`letter-${letter}`} className="scroll-mt-24">
-              <div className="flex items-baseline gap-3 border-b border-border-subtle pb-2">
-                <span className="text-3xl font-semibold tracking-tight text-brand-500">
-                  {letter}
-                </span>
-                <span className="text-xs text-muted">
-                  {items.length} {items.length === 1 ? "category" : "categories"}
-                </span>
-              </div>
-              <ul className="mt-3 flex flex-wrap gap-2">
+            <div key={letter} id={`letter-${letter}`} className="flex scroll-mt-36 gap-3">
+              <span className="w-6 shrink-0 text-xl font-semibold tracking-tight text-brand-500">
+                {letter}
+              </span>
+              <ul className="flex flex-wrap gap-1.5">
                 {items.map((c) => (
                   <li key={c.slug}>
                     <Link
                       href={`/category/${c.slug}`}
-                      className="inline-flex items-center gap-2 rounded-full border border-border-subtle px-3 py-1.5 text-sm transition-colors hover:border-brand-400 hover:text-brand-600"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle px-2.5 py-1 text-[13px] transition-colors hover:border-brand-300 hover:text-brand-600"
                     >
                       {c.name}
-                      <span className="text-xs text-muted">{c.productCount}</span>
+                      <span className="text-[11px] text-muted">{c.productCount}</span>
                     </Link>
                   </li>
                 ))}

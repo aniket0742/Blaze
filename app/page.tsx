@@ -1,78 +1,84 @@
-import Link from "next/link";
 import { AzIndex } from "@/components/az-index";
-import { CategoryCard } from "@/components/category-card";
+import { AzPromo } from "@/components/az-promo";
+import { CategoryStrip } from "@/components/category-strip";
+import { DealStripCard } from "@/components/deal-strip-card";
+import { DealsModule } from "@/components/deals-module";
 import { ProductCard } from "@/components/product-card";
+import { ProductRail } from "@/components/product-rail";
 import { Section } from "@/components/section";
-import { getBestDeals, getCategoriesWithCounts, getTopRatedProducts } from "@/lib/catalog";
+import {
+  getBestDeals,
+  getCategoriesWithCounts,
+  getNewArrivals,
+  getTopRatedProducts,
+} from "@/lib/catalog";
 
 export const revalidate = 3600;
 
 export default async function HomePage() {
-  const [categories, topRated, deals] = await Promise.all([
+  const [categories, deals, topRated, newArrivals] = await Promise.all([
     getCategoriesWithCounts(),
-    getTopRatedProducts(10),
-    getBestDeals(10),
+    getBestDeals(7),
+    getTopRatedProducts(12),
+    getNewArrivals(12),
   ]);
 
-  const popular = [...categories].sort((a, b) => b.productCount - a.productCount).slice(0, 8);
+  const moduleDeals = deals.slice(0, 4);
+  const stripDeals = deals.slice(4, 7);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6">
-      <section className="py-12 sm:py-20">
-        <h1 className="max-w-3xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
-          Everything you need.
-          <br />
-          <span className="text-brand-500">A to Z.</span>
-        </h1>
-        <p className="mt-5 max-w-xl text-base text-muted sm:text-lg">
-          {categories.length} categories, priced honestly. Delivery dates and the full price are on
-          every card — no surprises three screens later.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            href="#browse"
-            className="rounded-full bg-brand-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-600"
-          >
-            Browse A–Z
-          </Link>
-          <Link
-            href="#deals"
-            className="rounded-full border border-border-subtle px-6 py-3 text-sm font-medium transition-colors hover:bg-surface"
-          >
-            See today&apos;s deals
-          </Link>
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-5 sm:px-6">
+      {/* Heaviest band on the page: a wide deals module beside a 2×2 of short
+          cards. Different widths, different visual weights. */}
+      <div id="deals" className="grid scroll-mt-36 gap-4 lg:grid-cols-4">
+        <div className="lg:col-span-2">
+          <DealsModule products={moduleDeals} />
         </div>
-      </section>
 
-      <Section title="Shop by category" description="The eight categories we stock most deeply.">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {popular.map((c) => (
-            <CategoryCard key={c.slug} {...c} />
+        {/* The right half is a 2×2 of short cards rather than two full-height
+            ones. The promo takes a single quarter; deals fill the rest. */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2 lg:grid-rows-2">
+          {stripDeals.map((p) => (
+            <DealStripCard key={p.id} product={p} />
           ))}
+          <AzPromo categoryCount={categories.length} />
         </div>
-      </Section>
+      </div>
 
-      <Section title="Top rated" description="Highest customer ratings across the catalog.">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {topRated.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
-      </Section>
-
-      <Section id="deals" title="Best deals" description="Largest discounts off list price.">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {deals.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
+      <Section
+        id="categories"
+        title={`Shop across ${categories.length} categories`}
+        description="Every category we carry, with live item counts."
+      >
+        <CategoryStrip categories={categories} />
       </Section>
 
       <Section
-        id="browse"
-        title="Browse A–Z"
-        description="Every category we carry, alphabetically."
+        id="top-rated"
+        card
+        title="Top rated"
+        description="Highest customer ratings across the catalog."
+        href="/search?sort=rating"
+        hrefLabel="View all"
       >
+        <ProductRail products={topRated} />
+      </Section>
+
+      <Section
+        id="new"
+        title="New arrivals"
+        description="Most recently added to the marketplace."
+        href="/search?sort=newest"
+        hrefLabel="View all"
+      >
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          {newArrivals.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </div>
+      </Section>
+
+      <Section id="browse" card title="Browse A–Z" description="Jump to any category by letter.">
         <AzIndex categories={categories} />
       </Section>
     </div>

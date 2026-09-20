@@ -4,6 +4,7 @@
  *
  * Run with: npm run db:seed
  */
+import { sql } from "drizzle-orm";
 import { db } from "../lib/db";
 import { categories, productReviews, products } from "../lib/db/schema";
 
@@ -30,6 +31,7 @@ type DummyProduct = {
   returnPolicy: string;
   images: string[];
   thumbnail: string;
+  meta: { createdAt: string };
   reviews: { rating: number; comment: string; date: string; reviewerName: string }[];
 };
 
@@ -76,9 +78,11 @@ async function main() {
         heroImage: heroBySlug.get(c.slug) ?? null,
       })),
     )
+    // `excluded` is the row we tried to insert. Referencing the table columns
+    // here instead would set each column to its own existing value — a no-op.
     .onConflictDoUpdate({
       target: categories.slug,
-      set: { name: categories.name, heroImage: categories.heroImage },
+      set: { name: sql`excluded.name`, heroImage: sql`excluded.hero_image` },
     });
   console.log("  categories upserted");
 
@@ -105,6 +109,7 @@ async function main() {
     warrantyInformation: p.warrantyInformation,
     shippingInformation: p.shippingInformation,
     returnPolicy: p.returnPolicy,
+    createdAt: new Date(p.meta.createdAt),
   }));
 
   await db
@@ -113,22 +118,23 @@ async function main() {
     .onConflictDoUpdate({
       target: products.id,
       set: {
-        slug: products.slug,
-        title: products.title,
-        description: products.description,
-        categorySlug: products.categorySlug,
-        brand: products.brand,
-        pricePaise: products.pricePaise,
-        mrpPaise: products.mrpPaise,
-        discountPercentage: products.discountPercentage,
-        rating: products.rating,
-        reviewCount: products.reviewCount,
-        stock: products.stock,
-        availabilityStatus: products.availabilityStatus,
-        thumbnail: products.thumbnail,
-        images: products.images,
-        tags: products.tags,
-        shippingInformation: products.shippingInformation,
+        slug: sql`excluded.slug`,
+        title: sql`excluded.title`,
+        description: sql`excluded.description`,
+        categorySlug: sql`excluded.category_slug`,
+        brand: sql`excluded.brand`,
+        pricePaise: sql`excluded.price_paise`,
+        mrpPaise: sql`excluded.mrp_paise`,
+        discountPercentage: sql`excluded.discount_percentage`,
+        rating: sql`excluded.rating`,
+        reviewCount: sql`excluded.review_count`,
+        stock: sql`excluded.stock`,
+        availabilityStatus: sql`excluded.availability_status`,
+        thumbnail: sql`excluded.thumbnail`,
+        images: sql`excluded.images`,
+        tags: sql`excluded.tags`,
+        shippingInformation: sql`excluded.shipping_information`,
+        createdAt: sql`excluded.created_at`,
       },
     });
   console.log("  products upserted");

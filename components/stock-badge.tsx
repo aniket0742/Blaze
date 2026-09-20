@@ -1,6 +1,6 @@
 const STYLES: Record<string, string> = {
-  "In Stock": "text-emerald-700 dark:text-emerald-400",
-  "Low Stock": "text-amber-700 dark:text-amber-400",
+  "In Stock": "text-emerald-700",
+  "Low Stock": "text-amber-700",
   "Out of Stock": "text-muted",
 };
 

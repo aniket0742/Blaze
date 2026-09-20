@@ -38,7 +38,7 @@ export default async function CategoryPage({ params }: PageProps<"/category/[slu
   const items = await getProductsByCategory(slug);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
       <nav className="text-sm text-muted">
         <Link href="/" className="hover:text-foreground">
           Home
@@ -49,14 +49,14 @@ export default async function CategoryPage({ params }: PageProps<"/category/[slu
         <span className="text-foreground">{category.name}</span>
       </nav>
 
-      <header className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{category.name}</h1>
-        <p className="text-sm text-muted">
+      <header className="mt-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{category.name}</h1>
+        <p className="text-[13px] text-muted">
           {items.length} {items.length === 1 ? "item" : "items"}, sorted by rating
         </p>
       </header>
 
-      <div className="mt-8">
+      <div className="mt-5">
         {items.length === 0 ? (
           <EmptyState
             title="Nothing in this category yet"
@@ -65,7 +65,7 @@ export default async function CategoryPage({ params }: PageProps<"/category/[slu
             actionLabel="Browse A–Z"
           />
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {items.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}

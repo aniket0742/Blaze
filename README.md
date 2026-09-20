@@ -13,10 +13,10 @@ A modern marketplace storefront — everything, A to Z. Built for the 8x assignm
 
 - Catalog schema (categories, products, reviews) on Supabase Postgres via Drizzle
 - Idempotent seed from DummyJSON: 24 categories, 194 products, 582 reviews
-- Home page: hero, top-rated and best-deals rails, category grid, and an A–Z category index
+- Modular marketplace home page: a wide deals module, standalone promo tiles, an image-forward category strip, a top-rated rail, a new-arrivals grid, and an A–Z category index
 - Category listing at `/category/[slug]`, sorted by rating — all 24 prerendered
 - Loading skeletons, empty state, error boundary, and a real 404
-- Responsive from 360px up; light and dark themes
+- Responsive from 360px up; single light theme (no dark mode by design)
 
 ## What's not built yet
 

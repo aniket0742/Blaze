@@ -35,10 +35,13 @@ export const products = pgTable(
     warrantyInformation: text("warranty_information"),
     shippingInformation: text("shipping_information").notNull(),
     returnPolicy: text("return_policy"),
+    // DummyJSON's meta.createdAt — backs the New Arrivals rail.
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("products_category_idx").on(t.categorySlug),
     index("products_rating_idx").on(t.rating),
+    index("products_created_at_idx").on(t.createdAt),
   ],
 );
 

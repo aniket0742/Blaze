@@ -148,3 +148,55 @@ Design and engineering decisions for Blaze, newest section last. Each entry says
 **Trade-offs, accepted:** a newly seeded category needs a rebuild before it is reachable, and Next logs an internal `NoFallbackError` for each unknown-slug request even though the 404 returned is correct.
 
 **Consequence:** `DATABASE_URL` must be present at **build** time, not only at runtime.
+
+---
+
+## 2026-09-20 — Marketplace density over editorial layout
+
+**Chosen:** The home page leads with product and category content rather than a hero. A two-row header (wordmark, search, account/cart) sits above a category nav row; the oversized hero is replaced by a single-line heading with the 24-category grid directly beneath, followed by three horizontally scrolling product rails and the A–Z index.
+
+**Why:** On review, the first version read as a DTC marketing landing page — a `text-6xl` headline and two CTAs consumed the first screen before a single product appeared. A marketplace has to make discovery the primary act. Section padding dropped from `py-10`/`py-20` to `py-5`, and cards tightened without losing any information.
+
+**Rejected:** *Keeping a reduced hero banner* — even a small hero competes with the category grid for the most valuable space on the page.
+
+---
+
+## 2026-09-20 — Modular home page: sections differ in weight and layout
+
+**Chosen:** The home page is a set of modules with deliberately different shapes rather than a stack of identical rails:
+
+| Module | Treatment |
+|---|---|
+| Deals delivered fast | Wide tinted block, 2×2 image-first tiles, spans half the row |
+| Biggest saving today | Narrow standalone promo card for a single product |
+| A–Z promo | Narrow saturated brand tile — the one bold colour field on the page |
+| Shop across categories | Image-forward horizontal strip, no card frame |
+| Top rated | Horizontal rail inside a white module card |
+| New arrivals | Plain six-column grid on the page background |
+| Browse A–Z | Alphabetical index inside a white module card |
+
+**Why:** Uniform rails read as a template. Varying width, background, and card size creates the merchandising hierarchy a marketplace needs, and gives product imagery more room in the modules that matter.
+
+**Restraint:** only the A–Z tile uses a saturated brand fill. Elsewhere orange is confined to discount badges, links, and one tinted module background, so the accent stays selective.
+
+---
+
+## 2026-09-20 — Light-only. No dark theme, no theme switching.
+
+**Chosen:** Blaze ships a single light theme. The dark palette and every `dark:` variant were removed outright, not merely deprioritised.
+
+**Why:** Superseded an earlier round where light was the default and dark an OS-driven alternative. Maintaining two themes costs review effort on every component for a demo where nobody will see the second one. One theme, designed properly.
+
+**How depth works instead of inversion:** a soft grey page (`#f5f6f8`) sits behind white cards with restrained shadows (`--shadow-card`, `--shadow-lift`). The design was reworked for light rather than inverted from the dark version.
+
+**Also:** `brand-600` is the tone for text and fills rather than `brand-500`, which does not clear 4.5:1 contrast on white.
+
+---
+
+## 2026-09-20 — Upsert must reference `excluded`
+
+**Chosen:** The seed's `onConflictDoUpdate` sets each column from `sql\`excluded.<column>\``.
+
+**Why:** Recording this because the first version was wrong and the test that should have caught it did not. Writing `set: { title: products.title }` compiles and runs, but generates `SET title = products.title` — assigning each column to its own existing value, so conflicting rows were never updated. Row counts stayed identical either way, so the idempotency check passed for the wrong reason. It only surfaced when a newly added column stayed at its default after a reseed.
+
+**Lesson applied:** verify a reseed by checking that *values* changed, not that counts matched.

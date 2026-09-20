@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-/* Blaze's own palette — a vermillion accent on near-neutral surfaces.
-   Deliberately not Amazon's golden orange. */
+/* Blaze is light-only. There is no dark theme and no theme switching.
+   Depth comes from a soft grey page behind white cards, not from inversion. */
 @theme {
   --color-brand-50: #fff3f0;
   --color-brand-100: #ffe1da;
@@ -11,9 +11,14 @@
   --color-brand-500: #ec4320;
   --color-brand-600: #c9300f;
   --color-brand-700: #a3260b;
+
+  /* Restrained elevation — cards lift off the page, they don't float. */
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --shadow-lift: 0 4px 16px rgba(16, 24, 40, 0.1);
 }
 
 @theme inline {
+  --color-page: var(--page);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
@@ -24,29 +29,20 @@
 }
 
 :root {
+  --page: #f5f6f8;
   --background: #ffffff;
-  --foreground: #18181b;
-  --surface: #fafafa;
-  --border-subtle: #e4e4e7;
-  --muted: #71717a;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0b0b0d;
-    --foreground: #f4f4f5;
-    --surface: #151518;
-    --border-subtle: #27272a;
-    --muted: #a1a1aa;
-  }
+  --surface: #f2f4f6;
+  --border-subtle: #e4e7ec;
+  --foreground: #14161a;
+  --muted: #5d6470;
 }
 
 body {
-  background: var(--background);
+  background: var(--page);
   color: var(--foreground);
 }
 
-/* Horizontal rails scroll on touch without a visible scrollbar. */
+/* Rails scroll on touch without a visible scrollbar. */
 .no-scrollbar {
   scrollbar-width: none;
 }

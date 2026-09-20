@@ -1,12 +1,12 @@
-import { ProductGridSkeleton } from "@/components/skeletons";
+import { ProductGridSkeleton, Shimmer } from "@/components/skeletons";
 
 export default function CategoryLoading() {
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-      <div className="h-4 w-32 animate-pulse rounded bg-surface" />
-      <div className="mt-4 h-9 w-64 animate-pulse rounded-lg bg-surface sm:h-11" />
-      <div className="mt-8">
-        <ProductGridSkeleton count={10} />
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <Shimmer className="h-3.5 w-32" />
+      <Shimmer className="mt-3 h-8 w-56 sm:h-9" />
+      <div className="mt-5">
+        <ProductGridSkeleton />
       </div>
     </div>
   );
