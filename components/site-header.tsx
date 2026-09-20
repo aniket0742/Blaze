@@ -63,7 +63,7 @@ export function SiteHeader() {
             <li key={item.href} className="shrink-0">
               <Link
                 href={item.href}
-                className="inline-flex h-10 items-center whitespace-nowrap rounded-lg px-3 text-sm font-medium text-muted transition-colors hover:bg-surface-strong hover:text-foreground"
+                className="inline-flex h-10 items-center whitespace-nowrap rounded-lg px-3 text-sm font-medium text-muted transition-colors hover:bg-background hover:text-foreground"
               >
                 {item.label}
               </Link>

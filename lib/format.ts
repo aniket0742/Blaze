@@ -51,3 +51,13 @@ export function deliveryEstimate(shippingInformation: string, from: Date = new D
 export function discountLabel(discountPercentage: number): string {
   return `${Math.round(discountPercentage)}% off`;
 }
+
+const reviewDate = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+export function formatReviewDate(date: Date): string {
+  return reviewDate.format(date);
+}

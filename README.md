@@ -27,9 +27,21 @@ A modern marketplace storefront — everything, A to Z. Built for the 8x assignm
 - Every filter lives in the URL, so results are shareable and the back button works
 - Works without JavaScript apart from the sort dropdown
 
+**Milestone 3 — product detail page**
+
+- Product page at `/product/[slug]` — all 194 prerendered
+- Image gallery with thumbnail selection
+- Title, brand, rating, review count, price, MRP, discount, stock state
+- Delivery date, returns and warranty shown beside the price, not buried
+- Description, specifications, and the seeded read-only reviews with a rating histogram
+- Quantity selector and Add to Cart, with an inline confirmation of what was added
+- Loading skeleton, a real 404 for unknown slugs, and an error boundary
+
 ## What's not built yet
 
-Product detail pages, cart, checkout, sign-in, and order history. They are the next milestones, in that order.
+The cart page, checkout, sign-in, and order history. They are the next milestones, in that order.
+
+Add to Cart works today and stores a guest cart in an httpOnly cookie, but there is no cart page to view it in yet, and the header cart icon stays disabled until there is.
 
 Deliberately out of scope for the whole project: seller tools, Prime/video/music, real payments, writing reviews, recommendations, and returns.
 
@@ -39,6 +51,7 @@ Deliberately out of scope for the whole project: seller tools, Prime/video/music
 - **One price, stated plainly.** No EMI tables, exchange offers, protection plans, or business-pricing upsells competing with the actual price.
 - **Stock is honest.** "Only 3 left" instead of vague urgency.
 - **A–Z browse that works.** The A-to-Z principle rendered as a usable alphabetical index of real categories, including which letters are empty.
+- **A product page that answers the question.** Delivery date, stock, returns and warranty sit beside the price, where the decision actually gets made — not spread across four collapsed panels further down.
 - **Mobile-first layout** rather than a desktop grid squeezed down.
 
 ## Local setup

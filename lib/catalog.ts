@@ -1,6 +1,6 @@
 import { count, desc, eq, max, min } from "drizzle-orm";
 import { db } from "./db";
-import { categories, products } from "./db/schema";
+import { categories, productReviews, products } from "./db/schema";
 
 /** Cheapest and dearest item in the catalog, in paise — shown as guidance on
  *  the price filter so the inputs aren't a blind guess. */
@@ -51,4 +51,23 @@ export async function getProductsByCategory(slug: string) {
     .from(products)
     .where(eq(products.categorySlug, slug))
     .orderBy(desc(products.rating));
+}
+
+export async function getProductBySlug(slug: string) {
+  const [product] = await db.select().from(products).where(eq(products.slug, slug)).limit(1);
+  return product ?? null;
+}
+
+/** Slugs for prerendering every product page. */
+export async function getAllProductSlugs() {
+  return db.select({ slug: products.slug }).from(products);
+}
+
+/** Seeded reviews, newest first. Read-only — see DECISIONS.md. */
+export async function getProductReviews(productId: number) {
+  return db
+    .select()
+    .from(productReviews)
+    .where(eq(productReviews.productId, productId))
+    .orderBy(desc(productReviews.reviewedAt));
 }

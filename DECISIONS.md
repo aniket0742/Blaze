@@ -250,3 +250,51 @@ Verified: zero occurrences of "Amazon" or "Alexa" in the visible text of the hom
 **Why:** Recording this because the first version was wrong and the test that should have caught it did not. Writing `set: { title: products.title }` compiles and runs, but generates `SET title = products.title` — assigning each column to its own existing value, so conflicting rows were never updated. Row counts stayed identical either way, so the idempotency check passed for the wrong reason. It only surfaced when a newly added column stayed at its default after a reseed.
 
 **Lesson applied:** verify a reseed by checking that *values* changed, not that counts matched.
+
+---
+
+## 2026-09-20 — Product pages are prerendered, so the page never reads the cart
+
+**Chosen:** `/product/[slug]` uses `generateStaticParams` over all 194 products with `dynamicParams = false`, matching the category pages. The page renders no cart state at all: the Add to Cart control is a client component, and the **server action returns the resulting line and cart quantities**, which is what the confirmation displays.
+
+**Why:** Reading the cart cookie during render would call `cookies()` and make the route dynamic, losing the prerendering. Returning the quantities from the mutation gives the shopper the same feedback without the page ever needing request-time state.
+
+**Consequence, accepted:** on first load the page cannot show "you already have 2 of these in your cart". It only reports what just happened. The cart milestone can revisit this when there is a cart page to link to.
+
+---
+
+## 2026-09-20 — Milestone 3 ships a cookie-backed guest cart, not a cart feature
+
+**Chosen:** Add to Cart writes an httpOnly `blaze_cart` cookie through a single server action in `lib/actions/cart.ts`. The cookie holds `[{ i: productId, q: quantity }]`. There is no cart page, no cart table, and no header badge.
+
+**Why:** It is the smallest thing that is not throwaway. It satisfies the two decisions already recorded — mutations go through server actions, and a guest cart exists before sign-in so it can be merged on login — so the cart milestone extends this rather than replacing it.
+
+**Cookie attributes:** `httpOnly`, `sameSite=lax`, `path=/`, `secure` in production only (so local HTTP development works), `max-age` 30 days.
+
+**The cookie is never trusted.** It is re-parsed on every write: non-array or unparseable JSON becomes an empty cart, and lines are dropped unless `i` and `q` are integers with `0 < q <= 10`. The cart is capped at 50 lines. Product existence, stock, and the per-line quantity are re-checked against the database inside the action, so the quantity selector in the browser is a convenience, not a control.
+
+**Rejected:** *A localStorage cart* — simpler to write, but it contradicts the server-action decision and would be discarded in the cart milestone.
+
+---
+
+## 2026-09-20 — The header cart icon stays disabled through Milestone 3
+
+**Chosen:** No cart badge or count in the header yet. Feedback after adding lives on the product page itself.
+
+**Why:** The header is in the root layout, so reading the cart cookie there would make **every** page dynamic — undoing the prerendering of the home page and all 24 category pages. That is a real cost for a badge that has nowhere to link to until `/cart` exists.
+
+---
+
+## 2026-09-20 — Ten units per line, and `minimumOrderQuantity` stays ignored
+
+**Chosen:** The quantity selector offers `min(stock, 10)`. The server clamps to the same bound.
+
+**Why:** Amazon caps its selector at 30. Ten is more than enough for a demo catalog and keeps the native select short enough to use on a phone. Consistent with the earlier decision to ignore DummyJSON's unrealistic `minimumOrderQuantity`.
+
+---
+
+## 2026-09-20 — SKU is not displayed on the product page
+
+**Chosen:** The specifications table shows brand, category, dimensions, weight, warranty, returns and shipping. It deliberately omits the SKU.
+
+**Why:** An earlier entry accepted the residual `MOB-AMA-AMA-099` SKU on the grounds that **nothing displays it**. A specifications table is exactly where that assumption would break, putting a source-brand abbreviation in front of a shopper. The SKU is not decision-making information anyway.
