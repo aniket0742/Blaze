@@ -2,7 +2,8 @@
 /node_modules
 /.pnp
 .pnp.*
-
+.CLAUDE.md
+/recon
 # next.js
 /.next/
 /out/
