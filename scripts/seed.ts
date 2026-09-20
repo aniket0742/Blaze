@@ -45,6 +45,22 @@ function mrpPaise(usd: number, discountPercentage: number): number {
   return Math.round(mrp * USD_TO_INR * 100);
 }
 
+/**
+ * DummyJSON ships one product branded "Amazon", whose description also names
+ * Alexa. The brief forbids using the Amazon name, so it is renamed here rather
+ * than patched in the database — a reseed would otherwise bring it back.
+ * Everything else about the product (price, rating, stock, reviews, imagery)
+ * is left exactly as the source has it.
+ */
+const RENAMED: Record<number, { title: string; brand: string; description: string }> = {
+  99: {
+    title: "Smart Speaker with Voice Assistant",
+    brand: "Blaze Audio",
+    description:
+      "A smart speaker with built-in voice control. It features premium sound quality and serves as a hub for controlling smart home devices.",
+  },
+};
+
 function slugify(title: string, id: number): string {
   const base = title
     .toLowerCase()
@@ -86,31 +102,35 @@ async function main() {
     });
   console.log("  categories upserted");
 
-  const rows = items.map((p) => ({
-    id: p.id,
-    slug: slugify(p.title, p.id),
-    title: p.title,
-    description: p.description,
-    categorySlug: p.category,
-    brand: p.brand ?? null,
-    pricePaise: toPaise(p.price),
-    mrpPaise: mrpPaise(p.price, p.discountPercentage),
-    discountPercentage: p.discountPercentage,
-    rating: p.rating,
-    reviewCount: p.reviews.length,
-    stock: p.stock,
-    availabilityStatus: p.availabilityStatus,
-    sku: p.sku,
-    thumbnail: p.thumbnail,
-    images: p.images,
-    tags: p.tags,
-    weightGrams: p.weight,
-    dimensions: p.dimensions,
-    warrantyInformation: p.warrantyInformation,
-    shippingInformation: p.shippingInformation,
-    returnPolicy: p.returnPolicy,
-    createdAt: new Date(p.meta.createdAt),
-  }));
+  const rows = items.map((p) => {
+    const renamed = RENAMED[p.id];
+    const title = renamed?.title ?? p.title;
+    return {
+      id: p.id,
+      slug: slugify(title, p.id),
+      title,
+      description: renamed?.description ?? p.description,
+      categorySlug: p.category,
+      brand: renamed?.brand ?? p.brand ?? null,
+      pricePaise: toPaise(p.price),
+      mrpPaise: mrpPaise(p.price, p.discountPercentage),
+      discountPercentage: p.discountPercentage,
+      rating: p.rating,
+      reviewCount: p.reviews.length,
+      stock: p.stock,
+      availabilityStatus: p.availabilityStatus,
+      sku: p.sku,
+      thumbnail: p.thumbnail,
+      images: p.images,
+      tags: p.tags,
+      weightGrams: p.weight,
+      dimensions: p.dimensions,
+      warrantyInformation: p.warrantyInformation,
+      shippingInformation: p.shippingInformation,
+      returnPolicy: p.returnPolicy,
+      createdAt: new Date(p.meta.createdAt),
+    };
+  });
 
   await db
     .insert(products)

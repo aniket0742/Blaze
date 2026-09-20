@@ -181,6 +181,56 @@ Design and engineering decisions for Blaze, newest section last. Each entry says
 
 ---
 
+## 2026-09-20 — Search: ILIKE with a field-priority relevance score
+
+**Chosen:** Search matches `title`, `description`, `brand`, `category_slug` and `tags` with `ILIKE`. Relevance is a `CASE` expression scoring a title prefix match above a title substring, then brand, then category, then description-only, breaking ties on rating.
+
+**Why:** The catalog is 194 rows in a 456 kB table. A representative filtered, sorted query plans and executes in **0.73 ms**. Postgres full-text search with a `tsvector` column, or trigram indexes via `pg_trgm`, would add an extension, a generated column and index maintenance to solve a problem this catalog does not have.
+
+**Rejected:**
+- *`tsvector` full-text search* — better stemming and ranking, but real setup cost for no measurable gain at this size. This is the first thing to revisit if the catalog grows by an order of magnitude.
+- *Trigram indexes* — requires enabling `pg_trgm` on the Supabase instance; unjustifiable for 456 kB.
+
+**Wildcards are escaped.** `%` and `_` in a shopper's query are escaped to literals, so searching for `%` finds products containing a percent sign rather than matching everything.
+
+---
+
+## 2026-09-20 — No new indexes for search
+
+**Chosen:** No indexes were added for Milestone 2.
+
+**Why:** Measured rather than assumed. `EXPLAIN ANALYZE` on a text + rating + sort query shows the planner already using `products_rating_idx` via a bitmap index scan, with the whole table resident in 28 shared buffers. The existing indexes on `category_slug`, `rating` and `created_at` cover every filter and sort the UI offers.
+
+**Rejected:** *An index on `price_paise`* — price sorting is a quicksort over at most a few hundred rows that are already in memory. The index would cost writes on every reseed and save nothing.
+
+---
+
+## 2026-09-20 — Filtering works without JavaScript
+
+**Chosen:** Category and rating filters are links, the price range is a GET form carrying the other filters as hidden fields, and the mobile filter panel is a native `<details>` disclosure. Only the sort dropdown is a client component.
+
+**Why:** Every filter state is a real URL, so results are shareable and the browser's back button behaves correctly — both explicit requirements. It also keeps almost the whole results page as server components, with one small client island.
+
+**Known limitation:** the header search box does not pre-fill with the current query on `/search`.
+
+---
+
+## 2026-09-20 — One seeded product renamed away from the Amazon name
+
+**Chosen:** DummyJSON product 99 — titled "Amazon Echo Plus", brand "Amazon", with a description naming Alexa — is renamed at seed time to **"Smart Speaker with Voice Assistant"**, brand **"Blaze Audio"**, with a description that drops both trademarks. Its price, rating, stock, SKU, tags, reviews and imagery are untouched.
+
+**Why:** The brief forbids using the Amazon name. It surfaced as the top result for `sort=rating`, so it was the first product a reviewer would see.
+
+**Where:** a `RENAMED` map in `scripts/seed.ts`, not a manual `UPDATE`. A database edit would be silently reverted by the next reseed.
+
+**Residual references, both outside anything a shopper reads:**
+- The CDN image path is still `…/mobile-accessories/amazon-echo-plus/thumbnail.webp`. It appears in the `src` attribute and the RSC payload. Removing it means self-hosting or proxying that image; not done.
+- The source SKU is `MOB-AMA-AMA-099`, an abbreviation carried over from the original brand. Kept, since the instruction was to preserve the product's other data. Nothing displays the SKU today.
+
+Verified: zero occurrences of "Amazon" or "Alexa" in the visible text of the home page, search results and the product's own category page. Reading the query there needs `useSearchParams`, which would make the header a client component and force a Suspense fallback into the statically prerendered home and category pages — a visible loading placeholder on the most important pages. Not worth it for a pre-filled input.
+
+---
+
 ## 2026-09-20 — Light-only. No dark theme, no theme switching.
 
 **Chosen:** Blaze ships a single light theme. The dark palette and every `dark:` variant were removed outright, not merely deprioritised.

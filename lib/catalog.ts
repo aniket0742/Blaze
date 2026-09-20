@@ -1,6 +1,15 @@
-import { count, desc, eq } from "drizzle-orm";
+import { count, desc, eq, max, min } from "drizzle-orm";
 import { db } from "./db";
 import { categories, products } from "./db/schema";
+
+/** Cheapest and dearest item in the catalog, in paise — shown as guidance on
+ *  the price filter so the inputs aren't a blind guess. */
+export async function getPriceBounds() {
+  const [row] = await db
+    .select({ min: min(products.pricePaise), max: max(products.pricePaise) })
+    .from(products);
+  return { min: row?.min ?? 0, max: row?.max ?? 0 };
+}
 
 export async function getCategoriesWithCounts() {
   return db

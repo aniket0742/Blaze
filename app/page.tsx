@@ -1,7 +1,7 @@
 import { AzIndex } from "@/components/az-index";
 import { AzPromo } from "@/components/az-promo";
 import { CategoryStrip } from "@/components/category-strip";
-import { DealStripCard } from "@/components/deal-strip-card";
+import { DealCard } from "@/components/deal-card";
 import { DealsModule } from "@/components/deals-module";
 import { ProductCard } from "@/components/product-card";
 import { ProductRail } from "@/components/product-rail";
@@ -24,7 +24,7 @@ export default async function HomePage() {
   ]);
 
   const moduleDeals = deals.slice(0, 4);
-  const stripDeals = deals.slice(4, 7);
+  const bandDeals = deals.slice(4, 7);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-5 sm:px-6">
@@ -35,11 +35,11 @@ export default async function HomePage() {
           <DealsModule products={moduleDeals} />
         </div>
 
-        {/* The right half is a 2×2 of short cards rather than two full-height
-            ones. The promo takes a single quarter; deals fill the rest. */}
+        {/* The right half is a 2×2. The promo takes a single quarter; deals
+            fill the rest. */}
         <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2 lg:grid-rows-2">
-          {stripDeals.map((p) => (
-            <DealStripCard key={p.id} product={p} />
+          {bandDeals.map((p) => (
+            <DealCard key={p.id} product={p} />
           ))}
           <AzPromo categoryCount={categories.length} />
         </div>

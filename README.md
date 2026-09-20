@@ -18,9 +18,18 @@ A modern marketplace storefront — everything, A to Z. Built for the 8x assignm
 - Loading skeletons, empty state, error boundary, and a real 404
 - Responsive from 360px up; single light theme (no dark mode by design)
 
+**Milestone 2 — search**
+
+- Global header search across title, description, brand, category and tags
+- `/search` with category, price-range and minimum-rating filters
+- Sorting by relevance, price (both directions), rating, newest and discount
+- Pagination, 24 per page
+- Every filter lives in the URL, so results are shareable and the back button works
+- Works without JavaScript apart from the sort dropdown
+
 ## What's not built yet
 
-Search and filters, product detail pages, cart, checkout, sign-in, and order history. They are the next milestones, in that order.
+Product detail pages, cart, checkout, sign-in, and order history. They are the next milestones, in that order.
 
 Deliberately out of scope for the whole project: seller tools, Prime/video/music, real payments, writing reviews, recommendations, and returns.
 

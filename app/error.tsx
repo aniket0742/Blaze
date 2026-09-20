@@ -9,7 +9,7 @@ export default function Error({ reset }: { error: Error; reset: () => void }) {
       </p>
       <button
         onClick={reset}
-        className="mt-6 rounded-full bg-brand-500 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-600"
+        className="mt-6 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
       >
         Try again
       </button>
