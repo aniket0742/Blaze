@@ -567,3 +567,63 @@ Signing in, signing up and signing out all end in a redirect, so re-reading per 
 **Rejected:** *editing `0000` in place* — tidier to read, but it rewrites a migration that has already been applied elsewhere, and the repair is more honest recorded as a repair.
 
 **Standing rule, restated:** `db:push` is not used again on this project. Schema changes go `db:generate` → review the SQL → `db:migrate`.
+
+---
+
+## 2026-09-20 — Every order read carries the user id in its WHERE clause
+
+**Chosen:** all three order reads live in `lib/orders-server.ts`, and each one puts the signed-in user's id into the SQL: `listOrders(userId)` and `getOrderDetail(orderNumber, userId)`. There is no function anywhere that fetches an order by number alone.
+
+**Why:** the alternative shape — fetch by number, then compare `order.userId` to the session — is one forgotten `if` away from leaking someone's address and purchase history. Putting the owner in the query makes the safe version the only version: a wrong user id returns no row, exactly like a wrong order number.
+
+**Consequence, deliberate:** the checkout confirmation now uses `getOrderDetail` too, and `getOwnOrder` in `checkout-server.ts` was deleted. One scoped read, three pages. `checkout-server.ts` keeps the writes.
+
+**Verified over HTTP, not just in unit tests:** signed in as a second account, `/order/<someone else's number>` returns the same not-found panel as a number that never existed, with no order data in the response and a tab that does not name the order. Six malformed segments — a lowercased number, `BLZ-%`, `' OR '1'='1`, `../../secrets`, an 80-character string and an unknown number — all land on the same panel.
+
+---
+
+## 2026-09-20 — "Not found", "not yours" and "not an order number" are one response
+
+**Chosen:** `getOrderDetail` returns `null` for all three, and the page renders one panel: "There is no order with that number on your account."
+
+**Why:** distinguishing them tells a prober which order numbers exist. It is also the honest answer from the shopper's point of view — for them, all three mean the same thing.
+
+**Rejected:** *a 404 for unknown and a 403 for someone else's* — conventional, and it confirms the existence of any order number an attacker guesses.
+
+---
+
+## 2026-09-20 — Order pages never join `products`
+
+**Chosen:** `/orders` and `/order/[orderNumber]` read `orders` and `order_items` only. The catalog is not consulted, not joined, and not needed.
+
+**Why:** an order is a historical record. If a product was bought for ₹42,500 and now costs ₹50,000, the order must say ₹42,500 — and if the product has been removed entirely, the order must still render. Joining `products` would make both of those wrong, and would turn a deleted product into a broken page.
+
+**The one thing `products` still governs:** `order_items.product_id` is a nullable reference that clears when the product is deleted, and it decides only whether the item title is a link. A line whose `product_id` is null renders identically, plus a quiet "No longer sold on Blaze."
+
+**Verified end to end:** a test product was bought at ₹42,500, then repriced to ₹50,000 and renamed in the catalog, then deleted. The order page kept showing ₹42,500 and the original title throughout, never rendered ₹50,000, and after deletion still rendered the line, dropped the product link and said the product was gone. Covered both by an integration test and over HTTP.
+
+---
+
+## 2026-09-20 — `isOrderNumberShaped` is looser than the order-number format
+
+**Chosen:** the URL segment is checked against `/^[A-Za-z0-9-]{1,32}$/`, not against `BLZ-YYMMDD-XXXXX`.
+
+**Why:** the check exists to bound what reaches the database, not to re-specify the format. Pinning it to today's exact shape would mean that changing `generateOrderNumber` later silently makes every older order unreachable — a data-loss bug that no test of the new format would catch. The unique index does the real lookup, and the query is owner-scoped either way, so a permissive shape check costs nothing.
+
+---
+
+## 2026-09-20 — `/order/[orderNumber]` is singular, `/orders` is the list
+
+**Chosen:** the list lives at `/orders` and one order at `/order/<number>`, and `proxy.ts` protects `/orders`, `/order` and `/checkout`.
+
+**Why the two prefixes do not collide:** the guard matches `pathname === p || pathname.startsWith(p + "/")`, so `/order` covers `/order/BLZ-…` without swallowing `/orders`, which is listed separately.
+
+**Note:** `/orders` still redirects when signed out, unlike `/checkout`, which renders a panel. That difference is intentional — `/checkout` is the POST target of a server action and a redirect there would override the action's own. Neither order page is an action target, so the simpler redirect is safe.
+
+---
+
+## 2026-09-20 — Milestone 7 needed no migration
+
+**Chosen:** no schema change. `orders` and `order_items` as built in Milestone 6 already carry everything the history and detail pages show.
+
+**Why worth recording:** it is the payoff for snapshotting at write time. The only thing added anywhere near the data layer was a read module.

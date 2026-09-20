@@ -3,15 +3,16 @@ import Link from "next/link";
 import { cache } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { PAYMENT_LABELS, isPaymentMethod } from "@/lib/checkout";
-import { getOwnOrder } from "@/lib/checkout-server";
 import { formatPrice } from "@/lib/format";
+import { orderPath } from "@/lib/orders";
+import { getOrderDetail } from "@/lib/orders-server";
 import { getUser } from "@/lib/supabase/server";
 
 /** One lookup shared by the title and the page, so the tab never says an order
  *  was placed unless this account owns that order. */
 const loadOrder = cache(async (orderNumber: string) => {
   const user = await getUser();
-  const order = user && orderNumber ? await getOwnOrder(orderNumber, user.id) : null;
+  const order = user && orderNumber ? await getOrderDetail(orderNumber, user.id) : null;
   return { user, order };
 });
 
@@ -40,10 +41,10 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 /**
- * The confirmation. It is a read of the order that was just written, scoped
- * to its owner, so a forwarded link shows nothing to anyone else. Order
- * history and order details are a later milestone; this page is the last
- * step of checkout, not the first step of that.
+ * The confirmation. It is a read of the order that was just written, through
+ * the same owner-scoped lookup the order pages use, so a forwarded link shows
+ * nothing to anyone else. This is the last step of checkout; the full record
+ * lives at /order/[orderNumber], which it links to.
  */
 export default async function CheckoutSuccessPage({
   searchParams,
@@ -112,16 +113,16 @@ export default async function CheckoutSuccessPage({
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
         <Link
-          href="/search"
+          href={orderPath(order.orderNumber)}
           className="rounded-full bg-brand-600 px-5 py-2.5 text-center text-sm font-medium text-white transition-colors hover:bg-brand-700"
         >
-          Continue shopping
+          View order details
         </Link>
         <Link
-          href="/"
+          href="/search"
           className="rounded-full border border-border-subtle px-5 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface"
         >
-          Back to home
+          Continue shopping
         </Link>
       </div>
     </Shell>

@@ -5,7 +5,7 @@
  * a payment choice; it never sends a price, a quantity total or a product
  * title, and nothing it does send is used in the arithmetic.
  */
-import { and, eq, inArray, sum } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { CartLine } from "./cart";
 import {
   generateOrderNumber,
@@ -178,33 +178,4 @@ async function writeOrder(orderNumber: string, input: OrderInput): Promise<boole
     await tx.delete(cartItems).where(eq(cartItems.userId, userId));
     return true;
   });
-}
-
-/** The confirmation read. Scoped to the owner, so an order number that is
- *  guessed or forwarded does not show someone else's order. */
-export async function getOwnOrder(orderNumber: string, userId: string) {
-  const [order] = await db
-    .select({
-      id: orders.id,
-      orderNumber: orders.orderNumber,
-      totalPaise: orders.totalPaise,
-      arrivesBy: orders.arrivesBy,
-      paymentMethod: orders.paymentMethod,
-      fullName: orders.fullName,
-      city: orders.city,
-      state: orders.state,
-      postalCode: orders.postalCode,
-      placedAt: orders.placedAt,
-    })
-    .from(orders)
-    .where(and(eq(orders.orderNumber, orderNumber), eq(orders.userId, userId)))
-    .limit(1);
-  if (!order) return null;
-
-  const [counted] = await db
-    .select({ units: sum(orderItems.quantity) })
-    .from(orderItems)
-    .where(eq(orderItems.orderId, order.id));
-
-  return { ...order, units: Number(counted?.units ?? 0) };
 }

@@ -68,15 +68,22 @@ A modern marketplace storefront — everything, A to Z. Built for the 8x assignm
 - Order confirmation at `/checkout/success`, scoped to the account that placed it
 - Works with JavaScript off, end to end
 
-## What's not built yet
+**Milestone 7 — orders**
 
-Order history. Orders are saved and you get an order number on the confirmation, but `/orders` is still a placeholder — listing and opening past orders is a later milestone.
+- Order history at `/orders`, newest first, with what you bought, what you paid and where it went
+- Order details at `/order/[orderNumber]` — number, date, status, every item with quantity and the price paid, subtotal, delivery, total, shipping address and payment method
+- **Orders are historical records.** The pages never read the catalog, so a product that has since been repriced, renamed or deleted changes nothing: an item bought for ₹42,500 still says ₹42,500 after it goes up to ₹50,000, and a deleted product still shows its saved title and image
+- Every order read is scoped to the signed-in account in SQL, so there is no query that can return someone else's order
+- "No such order", "not your order" and "not an order number" all give the same answer, so the URL cannot be used to discover which order numbers exist
+- Empty history, missing orders, loading and error states
+
+## What's not built yet
 
 Stock is validated at checkout but not decremented, so the demo catalog never runs down. See [DECISIONS.md](DECISIONS.md) for why.
 
-Also not built: password reset, profile management, saved addresses, and social sign-in.
+Also not built: reorder, password reset, profile management, saved addresses, and social sign-in.
 
-Deliberately out of scope for the whole project: seller tools, Prime/video/music, real payments, writing reviews, recommendations, and returns.
+Deliberately out of scope for the whole project: seller tools, Prime/video/music, real payments, writing reviews, recommendations, wishlists, and order cancellation, returns and refunds.
 
 ## Improvements over Amazon
 
@@ -89,6 +96,7 @@ Deliberately out of scope for the whole project: seller tools, Prime/video/music
 - **Your cart survives signing in.** Items added as a guest are added to your account cart rather than replacing it or being thrown away.
 - **Checkout tells you why it can't proceed.** If something sold out or your quantity is now above stock, the page names the item and the number instead of failing at the last step.
 - **A checkout with no dark patterns.** No insurance, no upsell interstitial, no pre-ticked anything, and one honest review screen before the order goes in.
+- **Orders stay true.** An order page reads only what was saved when you bought, never the live catalog — so a later price change, rename or delisting cannot alter what your receipt says, and an order whose product is gone still renders in full.
 - **Mobile-first layout** rather than a desktop grid squeezed down.
 
 ## Local setup
@@ -112,8 +120,8 @@ npm run dev
 | `npm run dev` | Development server |
 | `npm run build` | Production build (prerenders all pages — needs `DATABASE_URL`) |
 | `npm run lint` | ESLint |
-| `npm test` | Unit tests — cart cookie, merge rule, redirect safety, address validation, order numbers |
-| `npm run test:db` | Integration tests — cart merge and order writing, against the real catalog (needs `DATABASE_URL`) |
+| `npm test` | Unit tests — cart cookie, merge rule, redirect safety, address validation, order numbers, order routing |
+| `npm run test:db` | Integration tests — cart merge, order writing, order history and ownership, against the real catalog (needs `DATABASE_URL`) |
 | `npm run db:generate` | Generate a SQL migration from the schema |
 | `npm run db:migrate` | Apply pending migrations |
 | `npm run db:seed` | Seed the catalog from DummyJSON |

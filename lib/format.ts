@@ -78,3 +78,14 @@ export function slowestShipping(infos: string[]): string | null {
   }
   return slowest;
 }
+
+const orderDate = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+/** When an order was placed: "20 Sep 2026". */
+export function formatOrderDate(date: Date): string {
+  return orderDate.format(date);
+}

@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /** Routes that require a session. Guarding here returns a real 307 before
  *  anything renders; the pages check again so they never rely on this alone. */
-const PROTECTED = ["/orders", "/checkout"];
+const PROTECTED = ["/orders", "/order", "/checkout"];
 
 /**
  * Refreshes the Supabase session cookie on navigation. Next 16 calls this
