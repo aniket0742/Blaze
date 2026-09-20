@@ -31,7 +31,7 @@ export function OrderCard({ order }: { order: OrderSummaryView }) {
 
   return (
     <li className="overflow-hidden rounded-2xl border border-border-subtle bg-background shadow-card">
-      <dl className="flex flex-wrap justify-between gap-x-6 gap-y-3 border-b border-border-subtle bg-surface px-4 py-3 sm:px-5">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-b border-border-subtle bg-surface px-4 py-3 sm:flex sm:flex-wrap sm:justify-between sm:px-5">
         <Meta label="Order placed" value={formatOrderDate(order.placedAt)} />
         <Meta label="Total" value={formatPrice(order.totalPaise)} />
         <Meta label="Ship to" value={`${order.city}, ${order.state}`} />

@@ -28,6 +28,10 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-5 sm:px-6">
+      {/* The page is a stack of modules with their own h2s, so the document
+          outline needs a top-level heading that the design does not show. */}
+      <h1 className="sr-only">Blaze — everything, A to Z</h1>
+
       {/* Heaviest band on the page: a wide deals module beside a 2×2 of short
           cards. Different widths, different visual weights. */}
       <div id="deals" className="grid scroll-mt-36 gap-4 lg:grid-cols-4">

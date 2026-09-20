@@ -1,133 +1,275 @@
 # Blaze
 
-A modern marketplace storefront — everything, A to Z. Built for the 8x assignment as a rebuild of Amazon's core shopping experience.
+**A modern marketplace storefront — everything, A to Z.**
 
-**Live:** _not deployed yet — pending Vercel connection_
-**Demo login:** _none seeded yet — sign up with any email. Email confirmation is off, so the account works immediately._
+Blaze is a rebuild of the core Amazon shopping experience, from browsing a catalog to placing an order and reading it back later. Built for the 8x assignment.
 
-> Demo only. Catalog data comes from [DummyJSON](https://dummyjson.com). Prices are seeded demo values converted at a fixed rate of ₹85 = $1, **not live exchange rates**. Nothing here is for sale.
+> **Demo only.** Catalog data comes from [DummyJSON](https://dummyjson.com). Prices are seeded demo values converted at a fixed rate of ₹85 = $1, **not live exchange rates**. No payment is ever taken and nothing ships.
 
-## What's built
+| | |
+|---|---|
+| **Live URL** | Not deployed. Runs locally with the setup below. |
+| **Demo login** | None seeded — sign up with any email. Email confirmation is off, so an account works immediately. |
+| **Stack** | Next.js 16 (App Router) · TypeScript · Tailwind v4 · Supabase Postgres · Drizzle ORM |
+| **Catalog** | 24 categories · 194 products · 582 reviews |
+| **Tests** | 72 unit · 28 integration (against a real database) |
 
-**Milestone 1 — foundation, home, category listing**
+---
 
-- Catalog schema (categories, products, reviews) on Supabase Postgres via Drizzle
-- Idempotent seed from DummyJSON: 24 categories, 194 products, 582 reviews
-- Modular marketplace home page: a wide deals module, standalone promo tiles, an image-forward category strip, a top-rated rail, a new-arrivals grid, and an A–Z category index
-- Category listing at `/category/[slug]`, sorted by rating — all 24 prerendered
-- Loading skeletons, empty state, error boundary, and a real 404
-- Responsive from 360px up; single light theme (no dark mode by design)
+## What this project demonstrates
 
-**Milestone 2 — search**
+- **A complete commercial flow**, not a catalog demo: browse → cart → account → checkout → order → history, with the edge cases handled rather than avoided.
+- **Server-authoritative money.** Prices, stock and totals are computed on the server from the database on every request that needs them. The browser never sends a price.
+- **Orders as immutable records.** An order stores what was bought at what was paid, and renders correctly even after the product is repriced, renamed or deleted.
+- **Progressive enhancement.** Sign up, sign in, sign out, search, filtering and the entire two-step checkout work with JavaScript disabled.
+- **Performance by architecture.** 218 catalog pages are prerendered at build time, and stay that way because session state is deliberately kept out of the root layout.
+- **Decisions written down.** [DECISIONS.md](DECISIONS.md) records every significant design and engineering decision — what was chosen, why, and what was rejected — including the bugs testing surfaced and what they taught.
 
-- Global header search across title, description, brand, category and tags
-- `/search` with category, price-range and minimum-rating filters
-- Sorting by relevance, price (both directions), rating, newest and discount
-- Pagination, 24 per page
+## Key features
+
+**Browsing**
+- Modular home page: deals module, promo tiles, category strip, top-rated rail, new arrivals, A–Z index
+- Category pages at `/category/[slug]` — all 24 prerendered
+- Product pages at `/product/[slug]` — all 194 prerendered, with gallery, specifications, and seeded read-only reviews with a rating histogram
+- Concrete delivery dates on every card, computed from the product's shipping class
+
+**Search**
+- Search across title, description, brand, category and tags
+- Category, price-range and minimum-rating filters; six sort orders; pagination
 - Every filter lives in the URL, so results are shareable and the back button works
-- Works without JavaScript apart from the sort dropdown
 
-**Milestone 3 — product detail page**
+**Cart**
+- Guest cart in an httpOnly cookie; signed-in cart in Postgres
+- Per-line quantity controls, stock clamping, and out-of-stock lines that stay visible and stop counting toward the total
+- Header badge hydrated client-side, so catalog pages stay prerendered
 
-- Product page at `/product/[slug]` — all 194 prerendered
-- Image gallery with thumbnail selection
-- Title, brand, rating, review count, price, MRP, discount, stock state
-- Delivery date, returns and warranty shown beside the price, not buried
-- Description, specifications, and the seeded read-only reviews with a rating histogram
-- Quantity selector and Add to Cart, with an inline confirmation of what was added
-- Loading skeleton, a real 404 for unknown slugs, and an error boundary
+**Accounts**
+- Email/password via Supabase Auth — Blaze never sees, hashes or stores a password
+- Guest cart merges into the account cart on sign in *and* sign up
+- `returnTo` validated against open redirects
 
-**Milestone 4 — cart**
+**Checkout and orders**
+- Address form with server-side validation, a demo payment step, and an explicit review before anything is placed
+- Stock re-validated at checkout and again at submission
+- Order history at `/orders` and order details at `/order/[orderNumber]`, both scoped to the signed-in account in SQL
 
-- Cart at `/cart` — item list, per-line quantity controls, remove, subtotal, free delivery, arrival date and total
-- Header cart badge, hydrated client-side so every catalog page stays prerendered
-- Stale items dropped and quantities clamped to stock on the server, on both read and write
-- Out-of-stock lines stay visible and excluded from the total until you remove them
-- Empty-cart, loading and error states
-- Unit tests for the cart cookie logic (`npm test`)
+## Core user journey
 
-**Milestone 5 — accounts and cart merge**
+```
+Home ──► Search / Category ──► Product ──► Add to cart ──► Cart
+                                                             │
+                                  ┌──────────────────────────┘
+                                  ▼
+                          Sign up / Sign in
+                        (guest cart merges in)
+                                  │
+                                  ▼
+              Checkout ──► Review ──► Demo payment ──► Order placed
+                                                             │
+                                  ┌──────────────────────────┘
+                                  ▼
+                    Order confirmation ──► Order details ──► Order history
+```
 
-- Email/password sign up, sign in and sign out via Supabase Auth (we never see or store a password)
-- `/signin` and `/signup`, with an auth-aware header account menu
-- Protected `/orders` placeholder, guarded in `proxy.ts` and again in the page
-- Signed-in carts live in `cart_items`, so they follow you across sessions and devices
-- Guest cart merges on sign in **and** sign up: quantities are summed, capped at stock, stale and out-of-stock items dropped, cookie cleared only after the write succeeds
-- `returnTo` is validated against open redirects
+A guest can browse, search and fill a cart with no account. Signing in at checkout carries that cart across rather than discarding it.
 
-**Milestone 6 — checkout and demo payment**
+## Tech stack
 
-- Checkout at `/checkout`, signed-in only, guarded in `proxy.ts` and again in the page
-- Delivery address form with server-side validation (10-digit mobile, 6-digit PIN, state from a list of all 36 states and union territories)
-- A review step before anything is placed — address, payment method, item count and total, with Edit to go back
-- Clearly-labelled demo payment. **Blaze has no card fields anywhere**: the card is a picture, not a form
-- Every figure is computed on the server from the catalog; the browser sends only an address and which demo method was chosen
-- Stock and availability re-checked at checkout and again when the order is placed — an unavailable line blocks the order and says which item and why
-- Orders and order items with a human-readable order number (`BLZ-260920-K4M7X`), and a snapshot of the title, price and quantity actually bought
-- The cart is cleared in the same transaction that writes the order, so it empties only if the order exists
-- Order confirmation at `/checkout/success`, scoped to the account that placed it
-- Works with JavaScript off, end to end
+| Layer | Choice | Why |
+|---|---|---|
+| Framework | Next.js 16, App Router | Server components and server actions keep cart, pricing and stock logic on the server where it has to live |
+| Language | TypeScript (strict) | The schema doubles as the type source |
+| Styling | Tailwind CSS v4 | Design tokens in `@theme`; light-only by design |
+| Database | Supabase Postgres | Postgres and auth behind one service |
+| ORM | Drizzle | SQL-shaped and TypeScript-native; migrations are plain reviewable SQL |
+| Auth | Supabase Auth | Credential handling is the part of auth most likely to be got wrong |
+| Tests | Node's built-in runner via `tsx` | No test-framework dependency |
 
-**Milestone 7 — orders**
+No state library, no component library, no form library, no test framework. Every runtime dependency in `package.json` is one the app actually needs.
 
-- Order history at `/orders`, newest first, with what you bought, what you paid and where it went
-- Order details at `/order/[orderNumber]` — number, date, status, every item with quantity and the price paid, subtotal, delivery, total, shipping address and payment method
-- **Orders are historical records.** The pages never read the catalog, so a product that has since been repriced, renamed or deleted changes nothing: an item bought for ₹42,500 still says ₹42,500 after it goes up to ₹50,000, and a deleted product still shows its saved title and image
-- Every order read is scoped to the signed-in account in SQL, so there is no query that can return someone else's order
-- "No such order", "not your order" and "not an order number" all give the same answer, so the URL cannot be used to discover which order numbers exist
-- Empty history, missing orders, loading and error states
+## Architecture
 
-## What's not built yet
+```
+app/                     Routes (App Router)
+  page.tsx               Home — prerendered
+  category/[slug]/       24 pages, prerendered
+  product/[slug]/        194 pages, prerendered
+  search/                Dynamic
+  cart/  checkout/       Dynamic, session-aware
+  orders/  order/[n]/    Dynamic, authenticated
+  api/session/           The only API route: { email, cartCount }
+components/              Presentational, plus a few client islands
+lib/
+  <domain>.ts            Pure logic — no next/headers, no database
+  <domain>-server.ts     Database reads
+  actions/<domain>.ts    Server actions (writes)
+  db/schema.ts           Drizzle schema, single source of truth
+proxy.ts                 Session refresh + route guards (Next 16's middleware)
+drizzle/                 Generated SQL migrations + snapshots
+tests/                   *.test.ts (unit) · *.integration.ts (real database)
+```
 
-Stock is validated at checkout but not decremented, so the demo catalog never runs down. See [DECISIONS.md](DECISIONS.md) for why.
+**Three conventions carry most of the weight:**
 
-Also not built: reorder, password reset, profile management, saved addresses, and social sign-in.
+1. **Pure / server split.** Every domain has a pure module (`cart.ts`, `checkout.ts`, `orders.ts`) with no `next/headers` and no database import, so client components and unit tests can use it. Database access lives in the `-server.ts` sibling. A `"use server"` module may only export async functions, which is why constants and initial states live in the pure file.
 
-Deliberately out of scope for the whole project: seller tools, Prime/video/music, real payments, writing reviews, recommendations, wishlists, and order cancellation, returns and refunds.
+2. **Writes are server actions; reads are server components.** There is exactly one API route, and it is a read — it exists so the header can know about your session without making every page dynamic.
 
-## Improvements over Amazon
+3. **Prerendering is protected.** The root layout holds no session state. That single constraint is what keeps 218 catalog pages static, and several decisions exist to defend it.
 
-- **Delivery date on every card.** Amazon makes you open the product to find out when it arrives. Blaze computes a concrete date from the product's shipping class and shows it in listings.
-- **One price, stated plainly.** No EMI tables, exchange offers, protection plans, or business-pricing upsells competing with the actual price.
-- **Stock is honest.** "Only 3 left" instead of vague urgency.
-- **A–Z browse that works.** The A-to-Z principle rendered as a usable alphabetical index of real categories, including which letters are empty.
-- **A product page that answers the question.** Delivery date, stock, returns and warranty sit beside the price, where the decision actually gets made — not spread across four collapsed panels further down.
-- **A cart that tells you the truth.** Out-of-stock items stay visible and stop counting toward your total instead of vanishing; quantities above stock are corrected with a reason, not silently.
-- **Your cart survives signing in.** Items added as a guest are added to your account cart rather than replacing it or being thrown away.
-- **Checkout tells you why it can't proceed.** If something sold out or your quantity is now above stock, the page names the item and the number instead of failing at the last step.
-- **A checkout with no dark patterns.** No insurance, no upsell interstitial, no pre-ticked anything, and one honest review screen before the order goes in.
-- **Orders stay true.** An order page reads only what was saved when you bought, never the live catalog — so a later price change, rename or delisting cannot alter what your receipt says, and an order whose product is gone still renders in full.
-- **Mobile-first layout** rather than a desktop grid squeezed down.
+## Data model
+
+```
+categories ──< products ──< product_reviews
+                  │
+                  ├──< cart_items          (user_id, product_id) composite PK
+                  └──< order_items >── orders
+```
+
+| Table | Holds | Notes |
+|---|---|---|
+| `categories` | 24 rows | Slug is the primary key |
+| `products` | 194 rows | DummyJSON's own id, so reseeding is stable |
+| `product_reviews` | 582 rows | Seeded, read-only |
+| `cart_items` | Signed-in carts | Composite PK enforces one row per product per user |
+| `orders` | Placed orders | Order number, snapshotted address, payment method, status, totals |
+| `order_items` | Order lines | **Snapshots** title, slug, brand, thumbnail, unit price, quantity |
+
+**All money is integer paise**, never floats. DummyJSON supplies floats, and floating-point arithmetic on money produces rounding errors that surface in totals. Formatting to `₹1,499` happens only at the display layer.
+
+**`order_items` is a snapshot, and this is load-bearing.** It stores its own copy of the product's title, image and unit price. `product_id` is a *nullable* reference that clears if the product is deleted. So a product bought for ₹42,500 still reads ₹42,500 after it rises to ₹50,000, and an order whose product has left the catalog still renders in full — it just stops linking out. Order pages never join `products`.
+
+**No foreign key from `user_id` to `auth.users`.** Drizzle does not manage Supabase's `auth` schema, so deleting a user would orphan their cart and order rows.
+
+## Authentication and the guest-cart merge
+
+Supabase Auth owns credentials entirely — Blaze never implements, hashes or stores a password.
+
+**One cart, two backends.** Guests keep a cart in an httpOnly cookie; signed-in shoppers keep it in `cart_items`. Both speak the same `CartLine[]`, so the cart page and every mutation are unchanged by the existence of accounts.
+
+**The merge rule:** guest quantity **+** account quantity, per product, then capped at current stock and the ten-per-order limit. Items whose product has left the catalog are dropped, out-of-stock items are dropped, and the cookie is cleared **only after** the account cart is written — so a failed merge leaves the guest cart intact to retry, and signing in never fails because of a cart.
+
+Summing rather than taking the larger of the two is deliberate: adding two of something on a phone and three on a laptop means you want five. An unwanted extra unit is visible in the cart and one click to fix; a quantity that quietly shrank is invisible until the order arrives wrong.
+
+Protected routes (`/orders`, `/order`, `/checkout`) are guarded in `proxy.ts`, which returns a real 307 before anything renders, and checked again in the page.
+
+## Search
+
+Postgres `ILIKE` with a field-priority relevance score — title matches outrank brand, which outranks category, description and tags. No new indexes were added: at 194 rows the planner's sequential scan is faster than maintaining a GIN index, and pretending otherwise would be theatre.
+
+Filtering, sorting and pagination are all URL state parsed by one function, so a filtered result set is a shareable link and the back button behaves. Everything except the sort dropdown works without JavaScript.
+
+## Checkout and demo payment
+
+**There are no card fields anywhere in Blaze.** The payment step offers two options — "Demo card" and "Cash on delivery" — and renders a styled rectangle that *looks* like a card. It is a picture, not a form. A field shaped like a card number will eventually receive a real card number, however loudly the page says demo; removing the field removes the whole class of problem. The order stores only which of the two was chosen.
+
+**Nothing priced comes from the browser.** The form posts an address and a payment identifier. Every figure is computed server-side by `quoteCart()` from `products` and `cart_items`.
+
+**Two steps, server-driven.** Submitting validates and returns a review step showing what will be bought, where it is going and what it costs. Only a second submit places the order. The step lives in the returned action state rather than in client state, so the whole flow works with JavaScript off.
+
+**The order write is one transaction:** insert the order, insert its snapshotted lines, delete the cart. The cart empties only if the order exists.
+
+**Order numbers** look like `BLZ-260920-K4M7X` — the date plus five characters from a 31-character alphabet with `0`, `1`, `I`, `L` and `O` removed, so they survive being read aloud. Uniqueness is enforced by a unique index, with a retry on collision.
 
 ## Local setup
 
+**Prerequisites:** Node 20+ and a Supabase project.
+
 ```bash
 npm install
-cp .env.example .env.local     # then fill in DATABASE_URL
-npm run db:migrate             # create tables from drizzle/*.sql
-npm run db:seed                # load the catalog (safe to re-run)
-npm run dev
+cp .env.example .env.local    # then fill in the three values
+npm run db:migrate            # create tables from drizzle/*.sql
+npm run db:seed               # load the catalog (idempotent, safe to re-run)
+npm run dev                   # http://localhost:3000
 ```
 
-`DATABASE_URL` is a Supabase **Session pooler** connection string (port 5432). It is required at build time as well as at runtime, because pages are prerendered from the database.
+### Environment variables
 
-`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` come from Project Settings → API. In the Supabase dashboard, **Confirm email** must be off and **Allow new users to sign up** on, or sign-up cannot complete.
+Copy `.env.example` to `.env.local` and fill in the values from your Supabase project. `.env.local` is gitignored; `.env.example` holds placeholders only and no real values.
 
-### Scripts
+| Variable | Where it comes from | Notes |
+|---|---|---|
+| `DATABASE_URL` | Supabase → Connect → **Session pooler** (port 5432) | Needed at build time as well as runtime, because pages are prerendered from the database |
+| `NEXT_PUBLIC_SUPABASE_URL` | Project Settings → API | |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Project Settings → API | A public, browser-safe key — not a secret, but it still belongs in `.env.local` |
 
-| Command | Purpose |
+**Two Supabase dashboard settings are required** or sign-up cannot complete:
+- Authentication → **Confirm email**: off
+- Authentication → **Allow new users to sign up**: on
+
+### Database and migrations
+
+Schema changes go **`db:generate` → review the SQL → `db:migrate`**. There is deliberately no `db:push` script: mixing it with generated migrations is what desynchronised the migration ledger earlier in this project, and the recovery is written up in [DECISIONS.md](DECISIONS.md).
+
+```bash
+npm run db:generate    # generate a migration from lib/db/schema.ts
+npm run db:migrate     # apply pending migrations
+npm run db:seed        # (re)load the catalog from DummyJSON
+```
+
+## Testing
+
+```bash
+npm run lint        # ESLint
+npm run typecheck   # tsc --noEmit
+npm test            # 72 unit tests — no database needed
+npm run test:db     # 28 integration tests — needs DATABASE_URL
+npm run build       # production build; also type-checks and prerenders
+```
+
+Unit tests cover the pure logic: cart cookie parsing, the merge rule, open-redirect safety, address validation, order-number generation and order routing. Integration tests run against the real catalog and a real database, covering cart persistence, the merge, checkout pricing, stock refusal, order writing, and that one account cannot read another's order. Tests clean up after themselves and leave no seeded catalog row modified.
+
+## Deployment
+
+Not currently deployed. It is built for Vercel:
+
+1. Import the repository into Vercel.
+2. Set `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Project Settings → Environment Variables. `DATABASE_URL` must be available at **build** time, since the catalog is prerendered.
+3. Run `npm run db:migrate` and `npm run db:seed` against the target database once.
+4. Deploy. `npm run build` is the build command; no other configuration is needed.
+
+The database client uses `max: 1` connections per instance deliberately — Supabase's session pooler allows 15, and both the build (multiple workers) and production (many lambdas) open a client each.
+
+## Improvements over Amazon
+
+- **Delivery date on every card.** Amazon makes you open the product to find out when it arrives; Blaze computes a concrete date from the shipping class and shows it in listings.
+- **One price, stated plainly.** No EMI tables, exchange offers, protection plans or business-pricing upsells competing with the actual price.
+- **Honest stock.** "Only 3 left" instead of vague urgency.
+- **An A–Z browse that works.** The A-to-Z principle rendered as a usable alphabetical index of real categories, including which letters are empty.
+- **A product page that answers the question.** Delivery date, stock, returns and warranty sit beside the price, not spread across four collapsed panels.
+- **A cart that tells the truth.** Out-of-stock items stay visible and stop counting toward the total instead of vanishing; quantities above stock are corrected with a reason.
+- **Checkout that says why it can't proceed.** If something sold out, the page names the item and the number rather than failing at the last step.
+- **No dark patterns.** No upsell interstitial, nothing pre-ticked, and one honest review screen before the order goes in.
+- **Orders stay true.** An order page reads only what was saved at purchase, so a later price change, rename or delisting cannot alter what your receipt says.
+
+## Intentional limitations
+
+These are deliberate scope decisions, not oversights. Each is explained in [DECISIONS.md](DECISIONS.md).
+
+| Limitation | Why |
 |---|---|
-| `npm run dev` | Development server |
-| `npm run build` | Production build (prerenders all pages — needs `DATABASE_URL`) |
-| `npm run lint` | ESLint |
-| `npm test` | Unit tests — cart cookie, merge rule, redirect safety, address validation, order numbers, order routing |
-| `npm run test:db` | Integration tests — cart merge, order writing, order history and ownership, against the real catalog (needs `DATABASE_URL`) |
-| `npm run db:generate` | Generate a SQL migration from the schema |
-| `npm run db:migrate` | Apply pending migrations |
-| `npm run db:seed` | Seed the catalog from DummyJSON |
+| **Stock is validated but never decremented** | The catalog is shared demo data and 218 pages are prerendered with stock baked in. Decrementing would drain the demo and be undone by the next reseed. Two shoppers can each buy the last unit. |
+| **No real payments** | By design. There are no card fields at all. |
+| **Delivery is always free** | There is no shipping-cost model. |
+| **Order status is always `placed`** | There is no fulfilment lifecycle to drive transitions. |
+| **The header account menu needs JavaScript** | It is a client island so catalog pages stay prerendered. Without JavaScript the header falls back to a plain "Sign in" link, and sign-out lives on the `/signin` panel. |
+| **Reviews are read-only** | Seeded from DummyJSON. Writing reviews is out of scope. |
+| **No foreign key to `auth.users`** | Drizzle does not manage Supabase's `auth` schema. |
+| **Light theme only** | No dark mode, by design — depth comes from a soft grey page behind white cards. |
+
+**Out of scope for the whole project:** order cancellation, returns, refunds, reorder, wishlists, recommendations, profile and address management, seller tools, and Prime/video/music equivalents.
+
+## Assignment notes
+
+- **`.agent-logs/`** holds the complete, unedited prompt-and-response record of how this project was built, captured automatically by hooks in `.claude/`. [CAPTURE-TEST.md](CAPTURE-TEST.md) documents that mechanism.
+- **[DECISIONS.md](DECISIONS.md)** is the design record: what was chosen, what was rejected, and the bugs that testing surfaced — an open-redirect vector, a redirect that silently overrode `returnTo`, and a migration chain that would have failed in a fresh environment.
+- **`recon/`** holds reference screenshots of Amazon captured during research. Blaze deliberately shares none of Amazon's visual design, logo or naming — the A-to-Z idea is treated as a product principle, expressed in the wordmark and the browse index.
+- The product is **Blaze** throughout. The Amazon name and visual identity are not used anywhere in the application.
 
 ## Project docs
 
-- [DECISIONS.md](DECISIONS.md) — what we chose, why, and what we rejected
-- [CAPTURE-TEST.md](CAPTURE-TEST.md) — proof of the automatic prompt/response capture
-- [CLAUDE.md](CLAUDE.md) — working rules for the AI agent on this project
+| Document | Contents |
+|---|---|
+| [DECISIONS.md](DECISIONS.md) | Every design and engineering decision, with rejected alternatives |
+| [CAPTURE-TEST.md](CAPTURE-TEST.md) | How the automatic agent-log capture works, and proof that it does |
+| [CLAUDE.md](CLAUDE.md) | Working rules for the AI agent on this project |

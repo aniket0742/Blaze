@@ -1,12 +1,11 @@
 import { SearchIcon } from "./icons";
 
 /**
- * A plain GET form — no client JavaScript. The /search route it submits to is
- * built in the search milestone; the field is here now so the header layout is
- * final rather than reshuffled later.
+ * A plain GET form that submits to /search — no client JavaScript at all.
+ *
+ * `id` is required because the header renders this twice, once for desktop and
+ * once for the mobile row, and duplicate ids break the label association.
  */
-/** `id` is required because the header renders this twice — once for desktop,
- *  once for the mobile row — and duplicate ids break the label association. */
 export function SearchField({ id, className = "" }: { id: string; className?: string }) {
   return (
     <form action="/search" role="search" className={`relative flex-1 ${className}`}>

@@ -12,8 +12,24 @@ import { useSession } from "./session-provider";
 export function AccountMenu() {
   const { email, loading, clearSession } = useSession();
 
+  // Blank until the first session read lands, so the header never flashes
+  // "Sign in" at someone who is already signed in. Without JavaScript that
+  // read never happens, so <noscript> keeps a real entry point rather than a
+  // permanently empty corner.
   if (loading) {
-    return <div className="h-10 w-10" aria-hidden />;
+    return (
+      <>
+        <div className="h-10 w-10" aria-hidden />
+        <noscript>
+          <Link
+            href="/signin"
+            className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-medium transition-colors hover:bg-surface"
+          >
+            Sign in
+          </Link>
+        </noscript>
+      </>
+    );
   }
 
   if (!email) {

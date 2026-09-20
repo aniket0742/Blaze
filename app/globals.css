@@ -42,6 +42,18 @@ body {
   color: var(--foreground);
 }
 
+/*
+ * One visible focus indicator for the whole app, including the controls that
+ * set `outline-none` so their resting state stays flat. This rule is
+ * deliberately unlayered, which is what lets it beat Tailwind's layered
+ * utilities. `:focus-visible` means keyboard users get the ring and pointer
+ * users do not.
+ */
+:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
+
 /* Rails scroll on touch without a visible scrollbar. */
 .no-scrollbar {
   scrollbar-width: none;

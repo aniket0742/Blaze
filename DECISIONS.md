@@ -627,3 +627,47 @@ Signing in, signing up and signing out all end in a redirect, so re-reading per 
 **Chosen:** no schema change. `orders` and `order_items` as built in Milestone 6 already carry everything the history and detail pages show.
 
 **Why worth recording:** it is the payoff for snapshotting at write time. The only thing added anywhere near the data layer was a read module.
+
+---
+
+## 2026-09-20 — One global focus ring instead of seven per-control ones
+
+**Chosen:** a single unlayered `:focus-visible` rule in `globals.css` giving every interactive element a 2px brand outline, rather than adding focus utilities to each control.
+
+**Why:** seven controls across the app set `outline-none` and then signalled focus only by changing their border colour from grey to orange — a change too subtle to track a keyboard caret by, and invisible to anyone who cannot distinguish those hues. Only the header search field had a real ring.
+
+**Why it works:** Tailwind's utilities live in `@layer utilities`, and unlayered CSS beats any layered CSS regardless of specificity. So one plain rule overrides every `outline-none` in the codebase without touching them. `:focus-visible` rather than `:focus` means pointer users never see it.
+
+**Rejected:** *editing all seven controls* — the same result, seven places to forget next time.
+
+---
+
+## 2026-09-20 — The header account menu needs JavaScript; the dead ends it created do not
+
+**Found in QA:** the server-rendered HTML contains no account control at all. `AccountMenu` is a client island that renders an empty box until the first `/api/session` read lands, so with JavaScript off there was no way to sign in from the header, no indication you were signed in, and **no way to sign out anywhere in the application**.
+
+**Chosen:** leave the header architecture alone and close the two dead ends additively — a `<noscript>` "Sign in" link in the loading branch, and a real Sign out button on the "You're signed in" panel at `/signin`, which is a server component and therefore a plain form post.
+
+**Why not make the header session-aware on the server:** that is precisely what the last four milestones were arranged to avoid. Reading the session in the root layout makes every page dynamic and costs the 218 prerendered catalog pages. The blank-until-loaded state is also deliberate — it exists so the header never flashes "Sign in" at someone who is already signed in.
+
+**Bonus:** sign-out became verifiable over HTTP for the first time, because it is now reachable without client hydration. The full-journey QA exercises it.
+
+---
+
+## 2026-09-20 — `db:push` removed from package.json
+
+**Chosen:** the `db:push` script is deleted. `db:generate` → review → `db:migrate` is the only path.
+
+**Why:** the standing rule was already recorded, but a rule that lives only in a document is one `npm run` away from being broken. Mixing push with generated migrations is what desynchronised the migration ledger in Milestone 6, and the recovery took a hand-written baseline plus a repair migration. Removing the script removes the temptation.
+
+**Also tidied:** `.gitignore` had a duplicated block appended to it, including a second `.env*` rule that sat *after* the `!.env.example` negation. The behaviour happened to be correct, but the file read as though `.env.example` should have been ignored. Deduplicated, with a comment saying why the negation must stay last.
+
+---
+
+## 2026-09-20 — A visually hidden `<h1>` on the home page
+
+**Chosen:** the home page gets `<h1 class="sr-only">Blaze — everything, A to Z</h1>`.
+
+**Why:** the page is a stack of modules that each own an `<h2>`, so the document had no top-level heading at all — every other page has one. That is both a screen-reader outline problem and an SEO one, on the single most important page.
+
+**Why hidden:** the design's entry point is the deals module, not a page title. Rendering a visible `<h1>` would mean redesigning the top of the page to justify it; the heading is for the document outline, so the outline is where it belongs.

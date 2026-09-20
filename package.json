@@ -7,12 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "test:db": "tsx --env-file=.env.local --test tests/*.integration.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
-    "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
-    "test": "tsx --test tests/*.test.ts",
-    "test:db": "tsx --env-file=.env.local --test tests/*.integration.ts"
+    "db:seed": "tsx --env-file=.env.local scripts/seed.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

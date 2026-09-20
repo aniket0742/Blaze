@@ -8,7 +8,8 @@
 /out/
 /build
 
-# env files — never commit secrets
+# env files — never commit secrets. .env.example is the one exception and
+# must stay below the ignore rules, or the negation does not apply.
 .env
 .env.*
 !.env.example
@@ -27,6 +28,3 @@ next-env.d.ts
 .DS_Store
 *.pem
 npm-debug.log*
-
-.vercel
-.env*

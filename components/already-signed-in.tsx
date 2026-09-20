@@ -1,7 +1,12 @@
 import Link from "next/link";
+import { signOut } from "@/lib/actions/auth";
 
 /**
  * Shown instead of the form when a signed-in shopper opens /signin or /signup.
+ *
+ * It carries Sign out because the header's account menu is a client component
+ * that only appears once the session read lands — so this is the one place to
+ * sign out that works with JavaScript off.
  *
  * This deliberately does NOT redirect. Next re-renders this page as part of
  * the sign-in action's response, and a redirect here would run *after* the
@@ -29,6 +34,15 @@ export function AlreadySignedIn({ email }: { email: string }) {
           Your cart
         </Link>
       </div>
+
+      <form action={signOut} className="mt-4">
+        <button
+          type="submit"
+          className="text-[13px] font-medium text-muted underline underline-offset-2 transition-colors hover:text-foreground"
+        >
+          Sign out
+        </button>
+      </form>
     </div>
   );
 }

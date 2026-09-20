@@ -24,8 +24,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* A client provider around server children: the pages inside stay
             server-rendered and prerendered. */}
         <SessionProvider>
+          {/* First thing a keyboard reaches, so the header nav and the search
+              field are not a toll gate on every page. */}
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-brand-600 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
+          >
+            Skip to content
+          </a>
           <SiteHeader />
-          <main className="flex-1">{children}</main>
+          <main id="main" className="flex-1">
+            {children}
+          </main>
           <SiteFooter />
         </SessionProvider>
       </body>
