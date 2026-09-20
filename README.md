@@ -3,7 +3,7 @@
 A modern marketplace storefront — everything, A to Z. Built for the 8x assignment as a rebuild of Amazon's core shopping experience.
 
 **Live:** _not deployed yet — pending Vercel connection_
-**Demo login:** _not applicable yet — authentication arrives in a later milestone_
+**Demo login:** _none seeded yet — sign up with any email. Email confirmation is off, so the account works immediately._
 
 > Demo only. Catalog data comes from [DummyJSON](https://dummyjson.com). Prices are seeded demo values converted at a fixed rate of ₹85 = $1, **not live exchange rates**. Nothing here is for sale.
 
@@ -55,11 +55,26 @@ A modern marketplace storefront — everything, A to Z. Built for the 8x assignm
 - Guest cart merges on sign in **and** sign up: quantities are summed, capped at stock, stale and out-of-stock items dropped, cookie cleared only after the write succeeds
 - `returnTo` is validated against open redirects
 
+**Milestone 6 — checkout and demo payment**
+
+- Checkout at `/checkout`, signed-in only, guarded in `proxy.ts` and again in the page
+- Delivery address form with server-side validation (10-digit mobile, 6-digit PIN, state from a list of all 36 states and union territories)
+- A review step before anything is placed — address, payment method, item count and total, with Edit to go back
+- Clearly-labelled demo payment. **Blaze has no card fields anywhere**: the card is a picture, not a form
+- Every figure is computed on the server from the catalog; the browser sends only an address and which demo method was chosen
+- Stock and availability re-checked at checkout and again when the order is placed — an unavailable line blocks the order and says which item and why
+- Orders and order items with a human-readable order number (`BLZ-260920-K4M7X`), and a snapshot of the title, price and quantity actually bought
+- The cart is cleared in the same transaction that writes the order, so it empties only if the order exists
+- Order confirmation at `/checkout/success`, scoped to the account that placed it
+- Works with JavaScript off, end to end
+
 ## What's not built yet
 
-Checkout and order history. `/orders` exists but is a placeholder, and the checkout button is deliberately disabled until there is a checkout to open.
+Order history. Orders are saved and you get an order number on the confirmation, but `/orders` is still a placeholder — listing and opening past orders is a later milestone.
 
-Also not built: password reset, profile management, and social sign-in.
+Stock is validated at checkout but not decremented, so the demo catalog never runs down. See [DECISIONS.md](DECISIONS.md) for why.
+
+Also not built: password reset, profile management, saved addresses, and social sign-in.
 
 Deliberately out of scope for the whole project: seller tools, Prime/video/music, real payments, writing reviews, recommendations, and returns.
 
@@ -72,6 +87,8 @@ Deliberately out of scope for the whole project: seller tools, Prime/video/music
 - **A product page that answers the question.** Delivery date, stock, returns and warranty sit beside the price, where the decision actually gets made — not spread across four collapsed panels further down.
 - **A cart that tells you the truth.** Out-of-stock items stay visible and stop counting toward your total instead of vanishing; quantities above stock are corrected with a reason, not silently.
 - **Your cart survives signing in.** Items added as a guest are added to your account cart rather than replacing it or being thrown away.
+- **Checkout tells you why it can't proceed.** If something sold out or your quantity is now above stock, the page names the item and the number instead of failing at the last step.
+- **A checkout with no dark patterns.** No insurance, no upsell interstitial, no pre-ticked anything, and one honest review screen before the order goes in.
 - **Mobile-first layout** rather than a desktop grid squeezed down.
 
 ## Local setup
@@ -79,7 +96,7 @@ Deliberately out of scope for the whole project: seller tools, Prime/video/music
 ```bash
 npm install
 cp .env.example .env.local     # then fill in DATABASE_URL
-npm run db:push                # create tables
+npm run db:migrate             # create tables from drizzle/*.sql
 npm run db:seed                # load the catalog (safe to re-run)
 npm run dev
 ```
@@ -95,10 +112,10 @@ npm run dev
 | `npm run dev` | Development server |
 | `npm run build` | Production build (prerenders all pages — needs `DATABASE_URL`) |
 | `npm run lint` | ESLint |
-| `npm test` | Unit tests — cart cookie, merge rule, redirect safety |
-| `npm run test:db` | Integration tests against the real catalog (needs `DATABASE_URL`) |
-| `npm run db:generate` | Generate SQL migration from the schema |
-| `npm run db:push` | Apply the schema to the database |
+| `npm test` | Unit tests — cart cookie, merge rule, redirect safety, address validation, order numbers |
+| `npm run test:db` | Integration tests — cart merge and order writing, against the real catalog (needs `DATABASE_URL`) |
+| `npm run db:generate` | Generate a SQL migration from the schema |
+| `npm run db:migrate` | Apply pending migrations |
 | `npm run db:seed` | Seed the catalog from DummyJSON |
 
 ## Project docs

@@ -95,3 +95,74 @@ export const cartItems = pgTable(
 export type CartItemRow = typeof cartItems.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type Category = typeof categories.$inferSelect;
+
+/**
+ * A placed order. The shipping address is snapshotted into these columns
+ * rather than referenced: there is no address book, and an order must keep
+ * saying where it was actually sent even if a future profile edits it.
+ *
+ * Money is integer paise, computed server-side from the catalog at the moment
+ * the order was placed. Nothing here comes from the browser except the
+ * address fields and which demo payment method was chosen.
+ *
+ * `userId` is a Supabase Auth user id, with no foreign key, for the same
+ * reason as `cartItems`. See DECISIONS.md.
+ */
+export const orders = pgTable(
+  "orders",
+  {
+    id: serial("id").primaryKey(),
+    // Human-readable and unique — the number we show the shopper.
+    orderNumber: text("order_number").notNull().unique(),
+    userId: uuid("user_id").notNull(),
+    email: text("email").notNull(),
+
+    fullName: text("full_name").notNull(),
+    phone: text("phone").notNull(),
+    addressLine1: text("address_line1").notNull(),
+    addressLine2: text("address_line2"),
+    city: text("city").notNull(),
+    state: text("state").notNull(),
+    postalCode: text("postal_code").notNull(),
+
+    paymentMethod: text("payment_method").notNull(),
+    status: text("status").notNull().default("placed"),
+
+    subtotalPaise: integer("subtotal_paise").notNull(),
+    deliveryPaise: integer("delivery_paise").notNull(),
+    totalPaise: integer("total_paise").notNull(),
+    // The delivery date we promised, already formatted. Kept because it is
+    // what the shopper was told, not something to recompute later.
+    arrivesBy: text("arrives_by"),
+
+    placedAt: timestamp("placed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("orders_user_idx").on(t.userId), index("orders_placed_at_idx").on(t.placedAt)],
+);
+
+/**
+ * One line per product, snapshotting what was bought at what was paid.
+ * `productId` is nullable and clears if the product leaves the catalog: the
+ * link to a live product page is a convenience, the snapshot is the record.
+ */
+export const orderItems = pgTable(
+  "order_items",
+  {
+    id: serial("id").primaryKey(),
+    orderId: integer("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    productId: integer("product_id").references(() => products.id, { onDelete: "set null" }),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    brand: text("brand"),
+    thumbnail: text("thumbnail").notNull(),
+    unitPricePaise: integer("unit_price_paise").notNull(),
+    quantity: integer("quantity").notNull(),
+    linePaise: integer("line_paise").notNull(),
+  },
+  (t) => [index("order_items_order_idx").on(t.orderId)],
+);
+
+export type Order = typeof orders.$inferSelect;
+export type OrderItem = typeof orderItems.$inferSelect;

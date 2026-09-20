@@ -461,3 +461,109 @@ Signing in, signing up and signing out all end in a redirect, so re-reading per 
 **Cost, accepted:** one small `no-store` JSON request per client navigation. That is the price of keeping the header session-aware while the home page, 24 category pages and 194 product pages stay prerendered — still verified `○ Static` and `●` SSG after this change.
 
 **Ordering:** a cart mutation returns the authoritative count immediately, so a `/api/session` response already in flight must not overwrite it with a pre-mutation number. `applySessionResponse` takes the email from the server always and the count from whichever write is newer. Six unit tests cover it.
+
+---
+
+## 2026-09-20 — Checkout is one page with a server-driven review step
+
+**Chosen:** `/checkout` is a single page holding the address form, the payment choice and a live order summary. Submitting does not place the order — it returns a **review** step showing what will be bought, where it is going and what it costs. Only a second submit, carrying `intent=place`, writes anything.
+
+**Why the review lives in the returned action state, not in client state:** a `useState` wizard would break with JavaScript off, and this project has kept every form working without it (auth, search filters). The step is a field on `CheckoutState`, so the whole two-step flow is plain form posts. Verified by driving it over HTTP with no JavaScript at all.
+
+**Rejected:**
+- *A multi-page wizard (`/checkout/address`, `/checkout/payment`, …)* — three routes, partial state to carry between them, and three places to re-check auth and stock. More surface area for no benefit at this size.
+- *One submit that places the order immediately* — the brief asks for a review before submission, and an irreversible action taken on first click is a bad shape for an order anyway.
+
+**Consequence:** the action runs twice per order, so the cart is re-read and re-priced twice. That is deliberate — what the shopper reviewed and what gets stored are computed by the same function, from the database, moments apart.
+
+---
+
+## 2026-09-20 — There are no card fields anywhere in Blaze
+
+**Chosen:** the demo payment step offers two radio options — "Demo card" and "Cash on delivery" — and renders a styled rectangle that *looks* like a card. There is no input for a card number, expiry or CVV anywhere in the application. The order stores only which of the two methods was chosen.
+
+**Why:** the safest way not to store real payment details is never to collect them. A form field shaped like a card number will eventually receive a real card number, however loudly the page says "demo" — and then it is in a request body, a server log, and possibly a database. Removing the field removes the whole class of problem.
+
+**Rejected:** *a fake card form pre-filled with 4242 4242 4242 4242* — more convincing as a payment step, and the obvious thing to build. Not worth the risk of accepting a real card in a portfolio project.
+
+**Stated in the UI, twice:** an amber banner above the options on the checkout page, and again on the confirmation. Both say plainly that nothing is charged.
+
+---
+
+## 2026-09-20 — Nothing priced comes from the browser
+
+**Chosen:** the checkout form posts an address and one of two payment identifiers. That is all. Prices, quantities, line totals, the subtotal, delivery and the order total are read from `products` and `cart_items` on the server, by `quoteCart()`, on every request that needs them.
+
+**Why:** a total submitted by a client is a total an attacker chooses. The cart already lives on the server, so there was never a reason to send one.
+
+**How it is enforced:** `placeOrder` ignores every form field except the address and `payment`, then builds the order from `quoteCart(await loadCart())`. The integration tests assert that each stored line equals `quantity × products.price_paise` and that the stored total is the sum of the stored lines.
+
+---
+
+## 2026-09-20 — Stock is re-validated at checkout, but not decremented
+
+**Chosen:** placing an order checks every line against current stock and refuses the order if anything is missing, out of stock, or above what is available. It does **not** reduce `products.stock`.
+
+**Why:** decrementing stock was not part of this milestone, and it is not a neutral change. The catalog is seeded demo data shared by every visitor, 218 catalog pages are prerendered with stock baked into them, and the seed is idempotent — so a decrement would drain the demo, make prerendered pages wrong until revalidation, and be undone by the next reseed.
+
+**The consequence, stated plainly:** two shoppers can each buy the last unit of a product. Nothing in the demo breaks, but it is not how a real store behaves.
+
+**When to revisit:** the moment stock is meant to be a real constraint rather than display data. That is a product decision, not an implementation detail, so it is flagged rather than assumed.
+
+---
+
+## 2026-09-20 — The order snapshots the address and the lines; there is no address book
+
+**Chosen:** `orders` stores the shipping address in its own columns, and `order_items` stores the product title, slug, brand, thumbnail, unit price and quantity at the time of purchase. `order_items.product_id` is a nullable reference that clears if the product leaves the catalog.
+
+**Why:** an order has to keep saying what was bought, at what price, and where it was sent, no matter what later happens to the catalog or to a profile. The product link is a convenience for "buy it again"; the snapshot is the record. This is the "Order line items are snapshots" decision from planning, now actually built.
+
+**Why no `addresses` table:** nothing reuses an address yet. Profile and address management are out of scope, and an empty table would be a claim about a design we have not built — the same reasoning as the `profiles` table we did not create in Milestone 5.
+
+**Verified:** an integration test reprices and renames the catalog product inside a transaction it rolls back, then asserts the stored order line is unchanged.
+
+---
+
+## 2026-09-20 — Order numbers are `BLZ-YYMMDD-XXXXX`
+
+**Chosen:** a human-readable number such as `BLZ-260920-K4M7X`: the date, then five characters from a 31-character alphabet with `0`, `1`, `I`, `L` and `O` removed. Uniqueness is enforced by a unique index on `orders.order_number`; the writer retries with a new number on conflict, up to five times.
+
+**Why not the primary key:** a sequential id tells every customer how many orders the store has taken, and lets anyone enumerate them. **Why not a UUID:** nobody can read one out over the phone.
+
+**Why the alphabet is short:** the characters that get misheard and mistyped are the ones left out. Roughly 28 million combinations per day against a demo that will take dozens of orders, so the retry loop is close to theoretical — but the unique index means a collision is a retry, never a duplicate.
+
+---
+
+## 2026-09-20 — The checkout page never calls `redirect()`
+
+**Chosen:** an empty cart, a signed-out visitor and a cart full of unavailable items each **render a panel** on `/checkout`. None of them redirects.
+
+**Why:** `/checkout` is the POST target of the place-order action, and Milestone 5 established what happens then — Next re-renders the POST target as part of the action response, and a `redirect()` in the page runs *after* the action's own redirect and silently overrides it. Placing an order empties the cart, so the obvious `if (cart.isEmpty) redirect("/cart")` would have fired on exactly the successful path and swallowed the trip to the confirmation.
+
+**What guards the route instead:** `proxy.ts` returns a real 307 to `/signin?returnTo=/checkout` before anything renders, and the page checks the session again and renders accordingly. Same two-layer pattern as `/orders`.
+
+---
+
+## 2026-09-20 — Addresses are validated as Indian addresses
+
+**Chosen:** full name, a 10-digit mobile number, two address lines, city, a **select** of the 28 states and 8 union territories, and a 6-digit PIN code that cannot start with zero.
+
+**Why:** the whole storefront is priced in rupees and formatted `en-IN`. A generic "Country / State / ZIP" form would be a different product. A select rather than a text field for the state is faster on a phone and makes the field genuinely checkable, instead of accepting "Californiya".
+
+**Why the phone is normalised:** people type `+91 98765 43210`, `098765 43210` and `98765-43210`. All three are the same number, and the order stores the ten digits.
+
+**Where it is enforced:** `validateAddress()` on the server, always. The `required`, `maxLength` and `inputMode` attributes on the inputs are a convenience for the shopper, not the check — the HTTP tests post straight past them.
+
+---
+
+## 2026-09-20 — Migrations are now real, and the 0000 gap is repaired
+
+**Chosen:** added `npm run db:migrate` (`drizzle-kit migrate`), baselined the migration ledger against the live database, and appended two `IF NOT EXISTS` statements to `0002` that add `products.created_at` and its index.
+
+**Why the baseline was needed:** `drizzle.__drizzle_migrations` did not exist. Milestone 1 applied `0000` with `db:push` and Milestone 5 applied `0001` by hand, so drizzle had no record of either. Running `migrate` would have replayed both against tables that already exist. The ledger now records all three with their real file hashes, and `0002` applied on its own.
+
+**Why the repair was needed:** `0000` never creates `products.created_at` — it was pushed, not migrated — while every snapshot from `0001` on claims it exists. Replaying the chain into a **fresh** database therefore produced a `products` table without it, and the New Arrivals rail and the "newest" sort would have failed there. The two repair statements are no-ops against the live database (verified — Postgres reported `skipping` for both) and fix the chain for anyone starting clean.
+
+**Rejected:** *editing `0000` in place* — tidier to read, but it rewrites a migration that has already been applied elsewhere, and the repair is more honest recorded as a repair.
+
+**Standing rule, restated:** `db:push` is not used again on this project. Schema changes go `db:generate` → review the SQL → `db:migrate`.

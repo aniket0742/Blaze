@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { CartView } from "@/lib/cart";
 import { formatPrice } from "@/lib/format";
 
@@ -33,21 +34,34 @@ export function CartSummary({ cart }: { cart: CartView }) {
 
       <p className="mt-1 text-[12px] text-muted">Inclusive of all taxes</p>
 
-      {/* Checkout is the next milestone. A disabled CTA is more honest than a
-          link that dead-ends, and matches how the header treats Account. */}
-      <button
-        type="button"
-        disabled
-        title="Checkout — not available yet"
-        className="mt-4 w-full cursor-not-allowed rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white opacity-60"
-      >
-        Proceed to checkout
-      </button>
-      <p className="mt-2 text-center text-[12px] text-muted">
-        {nothingOrderable
-          ? "Nothing in your cart can be ordered right now."
-          : "Checkout arrives in the next milestone."}
-      </p>
+      {/* A cart with nothing orderable in it keeps the disabled control rather
+          than a link that dead-ends on a checkout page it cannot use. */}
+      {nothingOrderable ? (
+        <>
+          <button
+            type="button"
+            disabled
+            className="mt-4 w-full cursor-not-allowed rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white opacity-60"
+          >
+            Proceed to checkout
+          </button>
+          <p className="mt-2 text-center text-[12px] text-muted">
+            Nothing in your cart can be ordered right now.
+          </p>
+        </>
+      ) : (
+        <>
+          <Link
+            href="/checkout"
+            className="mt-4 block w-full rounded-full bg-brand-600 px-5 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+          >
+            Proceed to checkout
+          </Link>
+          <p className="mt-2 text-center text-[12px] text-muted">
+            Demo checkout — no payment is taken.
+          </p>
+        </>
+      )}
     </div>
   );
 }

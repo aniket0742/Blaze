@@ -15,8 +15,8 @@ export default async function OrdersPage() {
       <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Your orders</h1>
       <div className="mt-5">
         <EmptyState
-          title="No orders yet"
-          description="Checkout isn't built yet, so there's nothing to show here. Once you can place an order, it will appear on this page."
+          title="Order history isn't built yet"
+          description="You can place orders and they are saved, but listing them here is a later milestone. Your order confirmation carries the order number."
           actionHref="/search"
           actionLabel="Start shopping"
         />
