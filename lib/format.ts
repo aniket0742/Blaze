@@ -61,3 +61,20 @@ const reviewDate = new Intl.DateTimeFormat("en-IN", {
 export function formatReviewDate(date: Date): string {
   return reviewDate.format(date);
 }
+
+/**
+ * The shipping class a whole order arrives on: the slowest of its lines.
+ * Unknown strings sort last so an unrecognised class is never optimistic.
+ */
+export function slowestShipping(infos: string[]): string | null {
+  let slowest: string | null = null;
+  let worst = -1;
+  for (const info of infos) {
+    const days = SHIPPING_DAYS[info]?.[1] ?? Infinity;
+    if (days > worst) {
+      worst = days;
+      slowest = info;
+    }
+  }
+  return slowest;
+}

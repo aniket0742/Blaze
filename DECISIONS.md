@@ -298,3 +298,60 @@ Verified: zero occurrences of "Amazon" or "Alexa" in the visible text of the hom
 **Chosen:** The specifications table shows brand, category, dimensions, weight, warranty, returns and shipping. It deliberately omits the SKU.
 
 **Why:** An earlier entry accepted the residual `MOB-AMA-AMA-099` SKU on the grounds that **nothing displays it**. A specifications table is exactly where that assumption would break, putting a source-brand abbreviation in front of a shopper. The SKU is not decision-making information anyway.
+
+---
+
+## 2026-09-20 — The header badge hydrates client-side, so catalog pages stay prerendered
+
+**Chosen:** A `CartCountProvider` client component wraps the app in the root layout. It fetches `GET /api/cart/count` once on mount, and every cart mutation returns the new total so the badge updates without a second round trip.
+
+**Why:** The header lives in the root layout. Reading the cart cookie there would call `cookies()` during layout render and turn **all 219 prerendered pages dynamic** — the home page, 24 category pages and 194 product pages. The badge is the only thing on those pages that needs request-time state, so it is the only thing that goes to the client. Verified: after this change `/` is still `○ Static` and the catalog is still `●` SSG.
+
+**Why a route handler and not a server action:** the existing decision routes *mutations* through server actions. This is a read, so a `GET` handler is the honest HTTP verb and can carry `Cache-Control: no-store`. It is the only `/api/*` route in the project.
+
+**Rejected:**
+- *`cacheComponents` (Next 16's PPR successor)* — the correct framework answer, and it would let a dynamic badge sit inside a static shell. But it changes caching semantics for every route and needs `"use cache"` annotations throughout. Far too large a change to make inside a cart milestone.
+- *Reading the cookie in the layout* — one line, and it costs the prerendering of the entire catalog.
+- *Making the cookie readable by JavaScript* — would let the badge read it synchronously with no fetch, but it means dropping `httpOnly`, which we deliberately set.
+
+**Consequence, accepted:** the badge is absent for one paint on a cold load, then appears. It renders nothing rather than a zero, so the gap reads as "no badge yet" rather than "empty cart".
+
+---
+
+## 2026-09-20 — The badge counts what is in the cart; the subtotal counts what is orderable
+
+**Chosen:** The header badge is the sum of cookie quantities and needs no database. The cart page's "Subtotal (N items)" counts only orderable units, excluding out-of-stock lines.
+
+**Why:** The badge must be cheap — it is fetched on every cold page load, and joining the catalog for a number in the corner of the header is not worth a query. The subtotal has to be truthful about what can actually be bought.
+
+**Consequence:** with an out-of-stock item in the cart the two numbers differ. The cart page explains the difference on the line itself, which is where a shopper would ask the question.
+
+---
+
+## 2026-09-20 — Cart reconciliation: stale lines are dropped, out-of-stock lines are kept
+
+**Chosen:** Every mutation reconciles the cookie against the catalog. A line whose product has left the catalog is **dropped**. A line whose product is out of stock is **kept** at its quantity, shown as unavailable, and excluded from the total until the shopper removes it.
+
+**Why:** Found by testing, not by design. The first version dropped out-of-stock lines too, which meant changing the quantity of an unrelated item silently deleted them — while the page was telling the shopper "remove it to check out". Silent deletion of something the shopper is being asked to act on is the wrong failure. A product that no longer exists is different: there is nothing to render and nothing to decide.
+
+**Where rendering and writing differ:** a React render cannot set cookies, so `getCartView` reconciles for **display only** and the cookie is corrected by the next mutation, which reconciles again. Both paths apply the same `clampQuantity` rule, so they cannot disagree about what is orderable.
+
+---
+
+## 2026-09-20 — Cart tests run on Node's built-in runner, with no test dependency
+
+**Chosen:** `npm test` runs `tsx --test tests/*.test.ts`, using Node 22's built-in test runner through the `tsx` dev dependency the seed script already needs.
+
+**Why:** The brief asked for cart tests, and adding a test framework is a dependency decision that was not ours to make unilaterally. Node ships a runner; `tsx` is already installed. Zero new packages.
+
+**What is covered:** the pure logic that decides what a cookie is allowed to mean — `parseCart`, `cartQuantity` and `clampQuantity` — across malformed JSON, non-array payloads, non-integer ids and quantities, negative and over-limit quantities, line caps, and non-finite input. Fourteen cases.
+
+**What is not, and why:** the server actions need a live database and a request context. They are exercised against the production build over HTTP instead, the same way the product page was. A DB-backed integration suite is the obvious next step if this grows.
+
+---
+
+## 2026-09-20 — Checkout renders as a disabled CTA
+
+**Chosen:** The cart shows a full-width "Proceed to checkout" button, disabled, with one line of text saying checkout arrives in the next milestone.
+
+**Why:** Consistent with how the header already treats Account — a disabled control rather than a link that dead-ends. A cart page with no checkout affordance at all reads as unfinished; a checkout button that 404s is worse.

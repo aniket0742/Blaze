@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { addToCart } from "@/lib/actions/cart";
 import { MAX_PER_LINE, type AddToCartResult } from "@/lib/cart";
+import { useCartCount } from "./cart-count";
 
 type Feedback =
   | { tone: "ok"; title: string; detail: string }
@@ -51,6 +53,7 @@ const TONES: Record<Feedback["tone"], string> = {
  * so the page itself never has to read the cart and can stay prerendered.
  */
 export function AddToCart({ productId, stock }: { productId: number; stock: number }) {
+  const { setCount } = useCartCount();
   const [qty, setQty] = useState(1);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [pending, startTransition] = useTransition();
@@ -72,7 +75,9 @@ export function AddToCart({ productId, stock }: { productId: number; stock: numb
   function submit() {
     startTransition(async () => {
       try {
-        setFeedback(feedbackFor(await addToCart(productId, qty)));
+        const result = await addToCart(productId, qty);
+        if (result.status !== "unavailable") setCount(result.cartQty);
+        setFeedback(feedbackFor(result));
       } catch {
         setFeedback({
           tone: "error",
@@ -118,6 +123,11 @@ export function AddToCart({ productId, stock }: { productId: number; stock: numb
           <div className={`rounded-xl border px-3.5 py-2.5 text-[13px] ${TONES[feedback.tone]}`}>
             <p className="font-medium">{feedback.title}</p>
             <p className="mt-0.5 opacity-80">{feedback.detail}</p>
+            {feedback.tone !== "error" && (
+              <Link href="/cart" className="mt-1 inline-block font-medium underline underline-offset-2">
+                View cart
+              </Link>
+            )}
           </div>
         )}
       </div>

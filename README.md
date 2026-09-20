@@ -37,11 +37,20 @@ A modern marketplace storefront — everything, A to Z. Built for the 8x assignm
 - Quantity selector and Add to Cart, with an inline confirmation of what was added
 - Loading skeleton, a real 404 for unknown slugs, and an error boundary
 
+**Milestone 4 — cart**
+
+- Cart at `/cart` — item list, per-line quantity controls, remove, subtotal, free delivery, arrival date and total
+- Header cart badge, hydrated client-side so every catalog page stays prerendered
+- Stale items dropped and quantities clamped to stock on the server, on both read and write
+- Out-of-stock lines stay visible and excluded from the total until you remove them
+- Empty-cart, loading and error states
+- Unit tests for the cart cookie logic (`npm test`)
+
 ## What's not built yet
 
-The cart page, checkout, sign-in, and order history. They are the next milestones, in that order.
+Checkout, sign-in, and order history. They are the next milestones, in that order.
 
-Add to Cart works today and stores a guest cart in an httpOnly cookie, but there is no cart page to view it in yet, and the header cart icon stays disabled until there is.
+The cart is a guest cart in an httpOnly cookie. Signing in and merging it into an account cart arrives with the auth milestone; the checkout button is deliberately disabled until there is a checkout to open.
 
 Deliberately out of scope for the whole project: seller tools, Prime/video/music, real payments, writing reviews, recommendations, and returns.
 
@@ -52,6 +61,7 @@ Deliberately out of scope for the whole project: seller tools, Prime/video/music
 - **Stock is honest.** "Only 3 left" instead of vague urgency.
 - **A–Z browse that works.** The A-to-Z principle rendered as a usable alphabetical index of real categories, including which letters are empty.
 - **A product page that answers the question.** Delivery date, stock, returns and warranty sit beside the price, where the decision actually gets made — not spread across four collapsed panels further down.
+- **A cart that tells you the truth.** Out-of-stock items stay visible and stop counting toward your total instead of vanishing; quantities above stock are corrected with a reason, not silently.
 - **Mobile-first layout** rather than a desktop grid squeezed down.
 
 ## Local setup
@@ -73,6 +83,7 @@ npm run dev
 | `npm run dev` | Development server |
 | `npm run build` | Production build (prerenders all pages — needs `DATABASE_URL`) |
 | `npm run lint` | ESLint |
+| `npm test` | Cart unit tests (Node's built-in runner) |
 | `npm run db:generate` | Generate SQL migration from the schema |
 | `npm run db:push` | Apply the schema to the database |
 | `npm run db:seed` | Seed the catalog from DummyJSON |

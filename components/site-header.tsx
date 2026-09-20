@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Wordmark } from "./brand";
-import { CartIcon, UserIcon } from "./icons";
+import { CartBadge } from "./cart-badge";
+import { UserIcon } from "./icons";
 import { SearchField } from "./search-field";
 
 const NAV = [
@@ -11,8 +12,8 @@ const NAV = [
 ];
 
 /**
- * Cart and account have no pages until their milestones, so they render as
- * disabled controls rather than links that dead-end.
+ * Account has no page until the auth milestone, so it renders as a disabled
+ * control rather than a link that dead-ends. The cart is live.
  */
 function PendingAction({
   label,
@@ -45,9 +46,7 @@ export function SiteHeader() {
             <PendingAction label="Account">
               <UserIcon />
             </PendingAction>
-            <PendingAction label="Cart">
-              <CartIcon />
-            </PendingAction>
+            <CartBadge />
           </div>
         </div>
 
