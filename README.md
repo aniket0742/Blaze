@@ -8,7 +8,7 @@ Blaze is a rebuild of the core Amazon shopping experience, from browsing a catal
 
 | | |
 |---|---|
-| **Live URL** | Not deployed. Runs locally with the setup below. |
+| **Live URL** | [Blaze](https://blaze-aniket0742.vercel.app/) |
 | **Demo login** | None seeded — sign up with any email. Email confirmation is off, so an account works immediately. |
 | **Stack** | Next.js 16 (App Router) · TypeScript · Tailwind v4 · Supabase Postgres · Drizzle ORM |
 | **Catalog** | 24 categories · 194 products · 582 reviews |
