@@ -46,11 +46,20 @@ A modern marketplace storefront — everything, A to Z. Built for the 8x assignm
 - Empty-cart, loading and error states
 - Unit tests for the cart cookie logic (`npm test`)
 
+**Milestone 5 — accounts and cart merge**
+
+- Email/password sign up, sign in and sign out via Supabase Auth (we never see or store a password)
+- `/signin` and `/signup`, with an auth-aware header account menu
+- Protected `/orders` placeholder, guarded in `proxy.ts` and again in the page
+- Signed-in carts live in `cart_items`, so they follow you across sessions and devices
+- Guest cart merges on sign in **and** sign up: quantities are summed, capped at stock, stale and out-of-stock items dropped, cookie cleared only after the write succeeds
+- `returnTo` is validated against open redirects
+
 ## What's not built yet
 
-Checkout, sign-in, and order history. They are the next milestones, in that order.
+Checkout and order history. `/orders` exists but is a placeholder, and the checkout button is deliberately disabled until there is a checkout to open.
 
-The cart is a guest cart in an httpOnly cookie. Signing in and merging it into an account cart arrives with the auth milestone; the checkout button is deliberately disabled until there is a checkout to open.
+Also not built: password reset, profile management, and social sign-in.
 
 Deliberately out of scope for the whole project: seller tools, Prime/video/music, real payments, writing reviews, recommendations, and returns.
 
@@ -62,6 +71,7 @@ Deliberately out of scope for the whole project: seller tools, Prime/video/music
 - **A–Z browse that works.** The A-to-Z principle rendered as a usable alphabetical index of real categories, including which letters are empty.
 - **A product page that answers the question.** Delivery date, stock, returns and warranty sit beside the price, where the decision actually gets made — not spread across four collapsed panels further down.
 - **A cart that tells you the truth.** Out-of-stock items stay visible and stop counting toward your total instead of vanishing; quantities above stock are corrected with a reason, not silently.
+- **Your cart survives signing in.** Items added as a guest are added to your account cart rather than replacing it or being thrown away.
 - **Mobile-first layout** rather than a desktop grid squeezed down.
 
 ## Local setup
@@ -76,6 +86,8 @@ npm run dev
 
 `DATABASE_URL` is a Supabase **Session pooler** connection string (port 5432). It is required at build time as well as at runtime, because pages are prerendered from the database.
 
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` come from Project Settings → API. In the Supabase dashboard, **Confirm email** must be off and **Allow new users to sign up** on, or sign-up cannot complete.
+
 ### Scripts
 
 | Command | Purpose |
@@ -83,7 +95,8 @@ npm run dev
 | `npm run dev` | Development server |
 | `npm run build` | Production build (prerenders all pages — needs `DATABASE_URL`) |
 | `npm run lint` | ESLint |
-| `npm test` | Cart unit tests (Node's built-in runner) |
+| `npm test` | Unit tests — cart cookie, merge rule, redirect safety |
+| `npm run test:db` | Integration tests against the real catalog (needs `DATABASE_URL`) |
 | `npm run db:generate` | Generate SQL migration from the schema |
 | `npm run db:push` | Apply the schema to the database |
 | `npm run db:seed` | Seed the catalog from DummyJSON |

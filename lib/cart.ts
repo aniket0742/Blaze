@@ -97,3 +97,27 @@ export function clampQuantity(requested: number, stock: number): number {
   if (!Number.isFinite(n) || n < 1) return 0;
   return Math.min(n, stock, MAX_PER_LINE);
 }
+
+/**
+ * The merge rule, stated once: guest quantity + signed-in quantity, per
+ * product. Capping against stock is deliberately NOT done here — it needs the
+ * catalog, and keeping this pure keeps it testable. See DECISIONS.md.
+ *
+ * Guest order comes first, because those are the items the shopper was
+ * looking at when they signed in.
+ */
+export function sumCarts(guest: CartLine[], user: CartLine[]): CartLine[] {
+  const merged: CartLine[] = [];
+  const indexById = new Map<number, number>();
+
+  for (const line of [...guest, ...user]) {
+    const at = indexById.get(line.i);
+    if (at === undefined) {
+      indexById.set(line.i, merged.length);
+      merged.push({ i: line.i, q: line.q });
+    } else {
+      merged[at].q += line.q;
+    }
+  }
+  return merged.slice(0, MAX_LINES);
+}

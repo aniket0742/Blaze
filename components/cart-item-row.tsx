@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { MAX_PER_LINE, type CartItemView } from "@/lib/cart";
 import { removeFromCart, setCartQuantity } from "@/lib/actions/cart";
 import { formatPrice } from "@/lib/format";
-import { useCartCount } from "./cart-count";
+import { useSession } from "./session-provider";
 
 function noteText(note: CartItemView["note"], qty: number): string | null {
   if (!note) return null;
@@ -15,7 +15,7 @@ function noteText(note: CartItemView["note"], qty: number): string | null {
 }
 
 export function CartItemRow({ item }: { item: CartItemView }) {
-  const { setCount } = useCartCount();
+  const { setCartCount } = useSession();
   const [pending, startTransition] = useTransition();
   const [failed, setFailed] = useState(false);
   const outOfStock = item.note?.kind === "out-of-stock";
@@ -25,7 +25,7 @@ export function CartItemRow({ item }: { item: CartItemView }) {
     setFailed(false);
     startTransition(async () => {
       try {
-        setCount((await action()).cartQty);
+        setCartCount((await action()).cartQty);
       } catch {
         setFailed(true);
       }

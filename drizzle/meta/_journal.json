@@ -8,6 +8,13 @@
       "when": 1789857840440,
       "tag": "0000_happy_captain_cross",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789885859221,
+      "tag": "0001_lame_pixie",
+      "breakpoints": true
     }
   ]
 }

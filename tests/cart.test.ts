@@ -8,7 +8,14 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAX_LINES, MAX_PER_LINE, cartQuantity, clampQuantity, parseCart } from "../lib/cart";
+import {
+  MAX_LINES,
+  MAX_PER_LINE,
+  cartQuantity,
+  clampQuantity,
+  parseCart,
+  sumCarts,
+} from "../lib/cart";
 
 test("parseCart: a missing or empty cookie is an empty cart", () => {
   assert.deepEqual(parseCart(undefined), []);
@@ -89,4 +96,68 @@ test("clampQuantity: non-finite input fails closed rather than maxing out", () =
   // than reading it as "as many as you have".
   assert.equal(clampQuantity(Infinity, 5), 0);
   assert.equal(clampQuantity(-Infinity, 5), 0);
+});
+
+// --- merge rule: guest quantity + user quantity, capped at stock ------------
+// Capping needs the catalog, so it is covered by tests/merge.integration.ts.
+// These cover the pure summing half.
+
+test("sumCarts: an empty guest cart leaves the account cart alone", () => {
+  assert.deepEqual(sumCarts([], [{ i: 1, q: 2 }]), [{ i: 1, q: 2 }]);
+});
+
+test("sumCarts: an empty account cart adopts the guest cart", () => {
+  assert.deepEqual(sumCarts([{ i: 1, q: 2 }], []), [{ i: 1, q: 2 }]);
+});
+
+test("sumCarts: duplicate products SUM rather than taking the maximum", () => {
+  // The rejected alternative would give 3 here. See DECISIONS.md.
+  assert.deepEqual(sumCarts([{ i: 1, q: 2 }], [{ i: 1, q: 3 }]), [{ i: 1, q: 5 }]);
+});
+
+test("sumCarts: disjoint products are unioned, guest items first", () => {
+  assert.deepEqual(sumCarts([{ i: 2, q: 1 }], [{ i: 1, q: 4 }]), [
+    { i: 2, q: 1 },
+    { i: 1, q: 4 },
+  ]);
+});
+
+test("sumCarts: overlapping and disjoint products together", () => {
+  assert.deepEqual(
+    sumCarts(
+      [
+        { i: 1, q: 2 },
+        { i: 2, q: 1 },
+      ],
+      [
+        { i: 2, q: 3 },
+        { i: 3, q: 5 },
+      ],
+    ),
+    [
+      { i: 1, q: 2 },
+      { i: 2, q: 4 },
+      { i: 3, q: 5 },
+    ],
+  );
+});
+
+test("sumCarts: a sum over the per-order limit is left for stock capping", () => {
+  // sumCarts is pure arithmetic; clamping happens in reconcileLines.
+  assert.deepEqual(sumCarts([{ i: 1, q: 9 }], [{ i: 1, q: 8 }]), [{ i: 1, q: 17 }]);
+  assert.equal(clampQuantity(17, 500), MAX_PER_LINE);
+});
+
+test("sumCarts: does not mutate either input", () => {
+  const guest = [{ i: 1, q: 2 }];
+  const user = [{ i: 1, q: 3 }];
+  sumCarts(guest, user);
+  assert.deepEqual(guest, [{ i: 1, q: 2 }]);
+  assert.deepEqual(user, [{ i: 1, q: 3 }]);
+});
+
+test("sumCarts: caps the merged cart at the line limit", () => {
+  const guest = Array.from({ length: 40 }, (_, n) => ({ i: n + 1, q: 1 }));
+  const user = Array.from({ length: 40 }, (_, n) => ({ i: n + 100, q: 1 }));
+  assert.equal(sumCarts(guest, user).length, MAX_LINES);
 });

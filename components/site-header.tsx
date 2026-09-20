@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Wordmark } from "./brand";
+import { AccountMenu } from "./account-menu";
 import { CartBadge } from "./cart-badge";
-import { UserIcon } from "./icons";
+
 import { SearchField } from "./search-field";
 
 const NAV = [
@@ -11,30 +12,6 @@ const NAV = [
   { href: "/#browse", label: "Browse A–Z" },
 ];
 
-/**
- * Account has no page until the auth milestone, so it renders as a disabled
- * control rather than a link that dead-ends. The cart is live.
- */
-function PendingAction({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      disabled
-      aria-label={`${label} — not available yet`}
-      title={`${label} — not available yet`}
-      className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-xl text-muted opacity-60"
-    >
-      {children}
-    </button>
-  );
-}
-
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border-subtle bg-background">
@@ -43,9 +20,7 @@ export function SiteHeader() {
           <Wordmark />
           <SearchField id="site-search-desktop" className="hidden sm:block" />
           <div className="ml-auto flex items-center gap-1 sm:ml-0">
-            <PendingAction label="Account">
-              <UserIcon />
-            </PendingAction>
+            <AccountMenu />
             <CartBadge />
           </div>
         </div>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { addToCart } from "@/lib/actions/cart";
 import { MAX_PER_LINE, type AddToCartResult } from "@/lib/cart";
-import { useCartCount } from "./cart-count";
+import { useSession } from "./session-provider";
 
 type Feedback =
   | { tone: "ok"; title: string; detail: string }
@@ -53,7 +53,7 @@ const TONES: Record<Feedback["tone"], string> = {
  * so the page itself never has to read the cart and can stay prerendered.
  */
 export function AddToCart({ productId, stock }: { productId: number; stock: number }) {
-  const { setCount } = useCartCount();
+  const { setCartCount } = useSession();
   const [qty, setQty] = useState(1);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [pending, startTransition] = useTransition();
@@ -76,7 +76,7 @@ export function AddToCart({ productId, stock }: { productId: number; stock: numb
     startTransition(async () => {
       try {
         const result = await addToCart(productId, qty);
-        if (result.status !== "unavailable") setCount(result.cartQty);
+        if (result.status !== "unavailable") setCartCount(result.cartQty);
         setFeedback(feedbackFor(result));
       } catch {
         setFeedback({

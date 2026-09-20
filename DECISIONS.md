@@ -355,3 +355,109 @@ Verified: zero occurrences of "Amazon" or "Alexa" in the visible text of the hom
 **Chosen:** The cart shows a full-width "Proceed to checkout" button, disabled, with one line of text saying checkout arrives in the next milestone.
 
 **Why:** Consistent with how the header already treats Account — a disabled control rather than a link that dead-ends. A cart page with no checkout affordance at all reads as unfinished; a checkout button that 404s is worse.
+
+---
+
+## 2026-09-20 — Guest cart merge: SUM quantities, then cap at stock
+
+**Chosen:** When a guest signs in or signs up, the cookie cart and the account cart are unioned by product and their quantities are **summed**. The sum is then capped at the product's current stock (and at the ten-per-order limit). Items whose product has left the catalog are dropped, out-of-stock items are dropped, and the cookie is cleared **only after** the account cart has been written.
+
+The rule, stated once in code: `sumCarts()` does the arithmetic, `reconcileLines()` does the capping. Guest lines come first in the result, because those are the items the shopper was looking at when they signed in.
+
+**Why summing:** items a guest added represent real intent to buy. Adding two of something on a phone and three on a laptop means you want five. Summing preserves that intent; the stock cap keeps the result orderable.
+
+**Rejected — taking `max(guest_qty, user_qty)`:** safer against accidental double-counting, and it cannot surprise a shopper with a larger quantity than they remember choosing. But it silently discards items the shopper deliberately added in one of the two sessions. Losing intent is the worse failure: an unwanted extra unit is visible in the cart and one click to fix, whereas a quantity that quietly shrank is invisible until the order arrives wrong.
+
+**Why out-of-stock items are dropped here but kept on the cart page:** a merge is a one-time consolidation the shopper does not watch, so carrying an unorderable line into a fresh account cart adds nothing. The cart page is the opposite — the shopper is looking right at it, and is being asked to remove the item, so it stays visible. `reconcileLines` takes a `keepOutOfStock` flag for exactly this difference.
+
+**Failure behaviour:** if the merge throws, sign-in still succeeds and the cookie is left intact, so the next sign-in retries it. Signing in must never fail because of a cart.
+
+---
+
+## 2026-09-20 — Guests keep a cookie cart, signed-in shoppers keep a database cart
+
+**Chosen:** One `CartLine[]` shape, two backends behind `lib/cart-store.ts`: the httpOnly cookie for guests, the `cart_items` table for signed-in shoppers. `loadCart()` and `saveCart()` pick the backend from the current session.
+
+**Why:** the cart page, the product page and all three cart mutations were written before accounts existed and are unchanged by them — the seam absorbed the whole difference. A database cart is also what makes "available across sessions and devices" true.
+
+**Table shape:** `cart_items(user_id uuid, product_id int, quantity int, updated_at)` with a composite primary key on `(user_id, product_id)`, so one-line-per-product is enforced by the database rather than by code. Writes replace the user's rows wholesale inside a transaction — at most fifty lines, so a delete-then-insert is simpler than diffing and just as correct.
+
+**No foreign key to `auth.users`:** Drizzle does not manage Supabase's `auth` schema, and account deletion is out of scope for this milestone. The consequence is that deleting a user would orphan cart rows. Worth adding when account management is built.
+
+---
+
+## 2026-09-20 — No profiles table yet
+
+**Chosen:** Cart rows reference the Supabase Auth user id directly. The `profiles`-style table sketched in the earlier auth entry is **not** created.
+
+**Why:** nothing in this milestone reads or writes a profile, and CLAUDE.md is explicit that we do not write code for later. An empty table would be a claim about a design we have not built.
+
+**When to revisit:** the first time we need something Supabase Auth does not store — a display name, a default address, marketing preferences.
+
+---
+
+## 2026-09-20 — The session endpoint replaced the cart-count endpoint
+
+**Chosen:** `/api/cart/count` became `/api/session`, returning `{ email, cartCount }` in one request.
+
+**Why:** the header now needs both who you are and what you have. Two endpoints would mean two round trips on every cold page load for one header. It remains the only `/api/*` route, and it remains a read.
+
+**Unchanged consequence:** keeping session state out of the root layout is still what lets the home page, 24 category pages and 194 product pages stay prerendered. Verified again after this milestone: `/` is `○ Static` and the catalog is `●` SSG.
+
+---
+
+## 2026-09-20 — Protected routes are guarded in `proxy.ts`, and again in the page
+
+**Chosen:** `/orders` is guarded in `proxy.ts` (Next 16's renamed middleware convention) and checks the user again in the page component.
+
+**Why, found by testing:** the page-level `redirect()` alone returned **HTTP 200** with a one-second `<meta http-equiv="refresh">` fallback, because the response had already begun streaming by the time the session resolved. No protected content leaked, but the status code was wrong and a no-JS client would sit on a blank page for a second. Guarding in the proxy runs before anything renders and returns a real **307** with `returnTo` preserved.
+
+**Why keep the page check:** a route should not depend on a matcher pattern being right. The two together cost one extra call that the proxy was making anyway.
+
+---
+
+## 2026-09-20 — `returnTo` is validated against open redirects
+
+**Chosen:** after sign-in we follow `returnTo` only when it is a same-origin relative path. `//host`, `/\host`, absolute URLs and `javascript:` are all rejected in favour of `/`.
+
+**Why:** the sign-in URL carries an attacker-controllable parameter, and a redirect straight after authentication is the classic phishing hand-off. Eight unit tests cover it.
+
+---
+
+## 2026-09-20 — Drizzle's 0000 snapshot had drifted from the live database
+
+**Chosen:** `drizzle/0001_lame_pixie.sql` was hand-trimmed to the `cart_items` statements only.
+
+**Why:** recording this because it would have failed loudly in a fresh environment. Milestone 1 applied `products.created_at` with `db:push`, which does not update the migration journal, so the 0000 snapshot never learned about it. Generating 0001 diffed the current schema against that stale snapshot and emitted `ALTER TABLE products ADD COLUMN created_at` — a statement that would error against the live database, where the column already exists. Verified against `information_schema` before applying rather than assumed.
+
+**Lesson:** `db:push` and generated migrations are not interchangeable. Pick one per project. From here on, schema changes go through `db:generate` so the journal stays truthful.
+
+---
+
+## 2026-09-20 — A signed-in visitor to /signin sees a panel, not a redirect
+
+**Chosen:** `/signin` and `/signup` render an "You're signed in" panel when a session exists. They do **not** call `redirect()`.
+
+**Why, found by testing:** the obvious version — `if (await getUser()) redirect("/")` — silently broke `returnTo`. After the sign-in action succeeds, Next re-renders the POST target (`/signin`) as part of the action's response. By then the shopper *is* signed in, so that guard fired and redirected to `/`, overriding the action's own `redirect(returnTo)`. The action was provably doing the right thing: instrumenting it showed `returnTo: "/cart" -> safe: "/cart"` while the response still carried `Location: /`.
+
+Making the guard honour `returnTo` did not fix it either, because the re-render does not carry the original query string. The only reliable fix is for the page not to redirect at all, so nothing can run after the action and overwrite its decision.
+
+**Verified after the change:** `/cart` → `/cart`, `/orders` → `/orders`, and `https://evil`, `//evil` and `javascript:` all → `/`.
+
+**Lesson:** a `redirect()` in a page that is also a server-action POST target runs *after* the action and wins. Guard such pages by rendering, not redirecting.
+
+---
+
+## 2026-09-20 — The header re-reads the session on every navigation
+
+**Chosen:** `SessionProvider` fetches `/api/session` keyed on `usePathname()`, not once on mount. Sign out additionally clears the header state on click.
+
+**Why, found in manual verification:** after signing in, `/signin` correctly rendered "You're signed in" but the header still showed "Sign in", with no account menu and therefore no way to sign out. The provider lives in the **root layout**, so a client-side navigation never remounts it — its `useEffect(…, [])` had already run once, as a guest, and that stale state survived the sign-in redirect. A hard reload fixed it, which is exactly the signature of client state outliving a server-side change.
+
+Signing in, signing up and signing out all end in a redirect, so re-reading per navigation covers all three through the one mechanism that already existed. No second auth source was introduced: the browser still learns about the session only from `/api/session`, which still reads it through the same Supabase server client as everything else.
+
+**Why sign out also clears locally:** it redirects to `/`, which is not a path change when you are already on `/`, so the per-navigation read would not fire. Clearing on click is optimistic; if the sign-out somehow failed, the next navigation's read puts the session back.
+
+**Cost, accepted:** one small `no-store` JSON request per client navigation. That is the price of keeping the header session-aware while the home page, 24 category pages and 194 product pages stay prerendered — still verified `○ Static` and `●` SSG after this change.
+
+**Ordering:** a cart mutation returns the authoritative count immediately, so a `/api/session` response already in flight must not overwrite it with a pre-mutation number. `applySessionResponse` takes the email from the server always and the count from whichever write is newer. Six unit tests cover it.

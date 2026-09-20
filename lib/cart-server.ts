@@ -1,47 +1,23 @@
 /**
- * Server-side cart: the cookie itself, and the reconciled view the cart page
- * renders. Imports `next/headers` and the database, so nothing in here may be
- * imported from a client component — use lib/cart.ts for that.
+ * The reconciled view the cart page renders. Reads whichever backend the
+ * request belongs to — cookie for guests, `cart_items` for signed-in
+ * shoppers — via lib/cart-store.ts, so this file no longer cares which.
  */
-import { inArray } from "drizzle-orm";
-import { cookies } from "next/headers";
-import {
-  CART_COOKIE,
-  EMPTY_CART,
-  MAX_LINES,
-  clampQuantity,
-  parseCart,
-  type CartItemView,
-  type CartLine,
-  type CartView,
-} from "./cart";
+import { EMPTY_CART, type CartItemView, type CartView } from "./cart";
+import { loadCart } from "./cart-store";
 import { db } from "./db";
 import { products } from "./db/schema";
 import { deliveryEstimate, slowestShipping } from "./format";
-
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
-
-export async function readCart(): Promise<CartLine[]> {
-  return parseCart((await cookies()).get(CART_COOKIE)?.value);
-}
-
-export async function writeCart(lines: CartLine[]): Promise<void> {
-  (await cookies()).set(CART_COOKIE, JSON.stringify(lines.slice(0, MAX_LINES)), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: COOKIE_MAX_AGE,
-  });
-}
+import { inArray } from "drizzle-orm";
+import { clampQuantity } from "./cart";
 
 /**
- * Joins the cookie against the live catalog and reconciles the difference.
- * A render cannot write cookies, so corrections here are for display only —
- * the cookie is rewritten by the next mutation, which reconciles again.
+ * Joins the stored cart against the live catalog and reconciles the
+ * difference. A render cannot write, so corrections here are for display only
+ * — the store is corrected by the next mutation, which reconciles again.
  */
 export async function getCartView(): Promise<CartView> {
-  const lines = await readCart();
+  const lines = await loadCart();
   if (lines.length === 0) return EMPTY_CART;
 
   const rows = await db
@@ -61,7 +37,6 @@ export async function getCartView(): Promise<CartView> {
   let subtotalPaise = 0;
   let totalQty = 0;
 
-  // Cookie order is insertion order, which is the order the shopper added in.
   for (const line of lines) {
     const product = byId.get(line.i);
     if (!product) {

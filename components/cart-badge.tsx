@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { CartIcon } from "./icons";
-import { useCartCount } from "./cart-count";
+import { useSession } from "./session-provider";
 
 export function CartBadge() {
-  const { count } = useCartCount();
+  const { cartCount: count } = useSession();
   const label = count && count > 0 ? `Cart, ${count} ${count === 1 ? "item" : "items"}` : "Cart";
 
   return (

@@ -1,4 +1,15 @@
-import { index, integer, jsonb, pgTable, real, serial, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  real,
+  serial,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 export const categories = pgTable("categories", {
   slug: text("slug").primaryKey(),
@@ -60,5 +71,27 @@ export const productReviews = pgTable(
   (t) => [index("product_reviews_product_idx").on(t.productId)],
 );
 
+/**
+ * The authenticated cart. One row per product per user, so the composite
+ * primary key enforces at the database what the cookie enforces in code.
+ *
+ * `userId` is a Supabase Auth user id. There is no foreign key to
+ * `auth.users`: Drizzle does not manage Supabase's `auth` schema, and account
+ * deletion is out of scope. See DECISIONS.md.
+ */
+export const cartItems = pgTable(
+  "cart_items",
+  {
+    userId: uuid("user_id").notNull(),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    quantity: integer("quantity").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.productId] }), index("cart_items_user_idx").on(t.userId)],
+);
+
+export type CartItemRow = typeof cartItems.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type Category = typeof categories.$inferSelect;

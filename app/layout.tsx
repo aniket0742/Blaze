@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { CartCountProvider } from "@/components/cart-count";
+import { SessionProvider } from "@/components/session-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import "./globals.css";
@@ -23,11 +23,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="font-sans min-h-full flex flex-col">
         {/* A client provider around server children: the pages inside stay
             server-rendered and prerendered. */}
-        <CartCountProvider>
+        <SessionProvider>
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter />
-        </CartCountProvider>
+        </SessionProvider>
       </body>
     </html>
   );
