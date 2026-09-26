@@ -15,9 +15,10 @@ import { db } from "../db";
 import { products } from "../db/schema";
 
 /**
- * Adds to whichever cart this request owns. Stock and quantity are
- * re-checked here because the quantity selector in the browser is only a
- * convenience — this is the boundary that actually enforces them.
+ * Adds to whichever cart this request owns. The product and the quantity are
+ * re-checked here because the selector in the browser is only a convenience —
+ * this is the boundary that enforces them. With no stock data, a product is
+ * available if it is in the catalog, which means it has a real current price.
  */
 export async function addToCart(productId: number, requested: number): Promise<AddToCartResult> {
   const id = Math.trunc(Number(productId));
@@ -25,16 +26,16 @@ export async function addToCart(productId: number, requested: number): Promise<A
   if (!Number.isInteger(id)) return { status: "unavailable" };
 
   const [product] = await db
-    .select({ id: products.id, stock: products.stock })
+    .select({ id: products.id })
     .from(products)
     .where(eq(products.id, id))
     .limit(1);
-  if (!product || product.stock < 1) return { status: "unavailable" };
+  if (!product) return { status: "unavailable" };
 
   const lines = await loadCart();
   const existing = lines.find((l) => l.i === product.id);
   const wanted = (existing?.q ?? 0) + qty;
-  const lineQty = Math.min(wanted, product.stock, MAX_PER_LINE);
+  const lineQty = Math.min(wanted, MAX_PER_LINE);
 
   if (existing) existing.q = lineQty;
   else if (lines.length < MAX_LINES) lines.push({ i: product.id, q: lineQty });
@@ -44,13 +45,9 @@ export async function addToCart(productId: number, requested: number): Promise<A
   revalidatePath("/cart");
   const cartQty = cartQuantity(lines);
 
-  if (wanted === lineQty) return { status: "added", lineQty, cartQty };
-  return {
-    status: "capped",
-    lineQty,
-    cartQty,
-    reason: product.stock < MAX_PER_LINE ? "stock" : "limit",
-  };
+  return wanted === lineQty
+    ? { status: "added", lineQty, cartQty }
+    : { status: "capped", lineQty, cartQty };
 }
 
 /**
@@ -62,26 +59,17 @@ export async function setCartQuantity(
   requested: number,
 ): Promise<CartMutationResult> {
   const id = Math.trunc(Number(productId));
-  if (!Number.isInteger(id)) return finish(await reconcileLines(await loadCart(), { keepOutOfStock: true }), id);
+  const lines = await reconcileLines(await loadCart());
+  if (!Number.isInteger(id) || !lines.some((l) => l.i === id)) return finish(lines, id);
 
-  const lines = await reconcileLines(await loadCart(), { keepOutOfStock: true });
-  const line = lines.find((l) => l.i === id);
-  if (!line) return finish(lines, id);
-
-  const [product] = await db
-    .select({ stock: products.stock })
-    .from(products)
-    .where(eq(products.id, id))
-    .limit(1);
-
-  const qty = product ? clampQuantity(requested, product.stock) : 0;
+  const qty = clampQuantity(requested);
   const next = qty > 0 ? lines.map((l) => (l.i === id ? { ...l, q: qty } : l)) : drop(lines, id);
   return finish(next, id);
 }
 
 export async function removeFromCart(productId: number): Promise<CartMutationResult> {
   const id = Math.trunc(Number(productId));
-  const lines = await reconcileLines(await loadCart(), { keepOutOfStock: true });
+  const lines = await reconcileLines(await loadCart());
   return finish(Number.isInteger(id) ? drop(lines, id) : lines, id);
 }
 

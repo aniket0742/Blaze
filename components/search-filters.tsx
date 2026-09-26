@@ -1,16 +1,23 @@
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
-import { hasActiveFilters, searchHref, type SearchQuery } from "@/lib/search-params";
-import { RatingStars } from "./rating-stars";
+import { gradesUpTo, hasActiveFilters, searchHref, type SearchQuery } from "@/lib/search-params";
+import { NutriscoreChip } from "./nutriscore-badge";
+import { button, field } from "./ui";
 
 type Category = { slug: string; name: string; productCount: number };
 
-const RATINGS = [4, 3, 2] as const;
+/** "b" reads as "A or B". E is not offered: "E or better" is every graded product. */
+const GRADES = [
+  { grade: "a", label: "A only" },
+  { grade: "b", label: "A or B" },
+  { grade: "c", label: "A to C" },
+  { grade: "d", label: "A to D" },
+] as const;
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="border-t border-border-subtle py-4 first:border-t-0 first:pt-0">
-      <h3 className="mb-2 text-[13px] font-semibold">{title}</h3>
+    <div className="border-t border-border-subtle py-5 first:border-t-0 first:pt-0">
+      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{title}</h3>
       {children}
     </div>
   );
@@ -21,8 +28,8 @@ function Option({ href, active, children }: { href: string; active: boolean; chi
     <Link
       href={href}
       aria-current={active ? "true" : undefined}
-      className={`block rounded-lg px-2 py-1.5 text-[13px] transition-colors ${
-        active ? "bg-brand-50 font-medium text-brand-700" : "text-muted hover:bg-surface hover:text-foreground"
+      className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-[14px] transition-colors ${
+        active ? "bg-foreground font-medium text-page" : "hover:bg-surface"
       }`}
     >
       {children}
@@ -47,117 +54,99 @@ export function SearchFilters({
   const minId = `${idPrefix}-minPrice`;
   const maxId = `${idPrefix}-maxPrice`;
   return (
-    <div className="rounded-2xl border border-border-subtle bg-background p-4 shadow-card">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold">Filters</h2>
-        {hasActiveFilters(query) && (
-          <Link
-            href={searchHref(query, {
-              category: "",
-              minPrice: null,
-              maxPrice: null,
-              minRating: null,
-            })}
-            className="text-[12px] font-medium text-brand-600 hover:underline"
-          >
-            Clear all
-          </Link>
-        )}
-      </div>
+    <div className="lg:sticky lg:top-24">
+      {hasActiveFilters(query) && (
+        <Link
+          href={searchHref(query, { category: "", minPrice: null, maxPrice: null, nutriscore: null })}
+          className="mb-4 inline-block text-[13px] font-medium underline decoration-border-field underline-offset-4 hover:decoration-foreground"
+        >
+          Clear all filters
+        </Link>
+      )}
 
-      <div className="mt-3">
-        <Group title="Category">
-          <div className="max-h-64 overflow-y-auto pr-1">
-            <Option href={searchHref(query, { category: "" })} active={!query.category}>
-              All categories
-            </Option>
-            {categories.map((c) => (
-              <Option
-                key={c.slug}
-                href={searchHref(query, { category: c.slug })}
-                active={query.category === c.slug}
-              >
-                <span className="flex items-center justify-between gap-2">
-                  <span className="truncate">{c.name}</span>
-                  <span className="text-[11px] text-muted">{c.productCount}</span>
-                </span>
-              </Option>
-            ))}
-          </div>
-        </Group>
-
-        <Group title="Price">
-          {/* A plain GET form: the other active filters ride along as hidden
-              fields so applying a price range doesn't drop them. */}
-          <form action="/search" className="space-y-2">
-            {query.q && <input type="hidden" name="q" value={query.q} />}
-            {query.category && <input type="hidden" name="category" value={query.category} />}
-            {query.minRating !== null && (
-              <input type="hidden" name="minRating" value={query.minRating} />
-            )}
-            {query.sort !== "relevance" && <input type="hidden" name="sort" value={query.sort} />}
-
-            <div className="flex items-center gap-2">
-              <label className="sr-only" htmlFor={minId}>
-                Minimum price in rupees
-              </label>
-              <input
-                id={minId}
-                name="minPrice"
-                type="number"
-                min={0}
-                inputMode="numeric"
-                placeholder="Min"
-                defaultValue={query.minPrice ?? ""}
-                className="h-9 w-full rounded-lg border border-border-subtle bg-surface px-2 text-[13px] outline-none focus:border-brand-400 focus:bg-background"
-              />
-              <span className="text-muted" aria-hidden>
-                –
-              </span>
-              <label className="sr-only" htmlFor={maxId}>
-                Maximum price in rupees
-              </label>
-              <input
-                id={maxId}
-                name="maxPrice"
-                type="number"
-                min={0}
-                inputMode="numeric"
-                placeholder="Max"
-                defaultValue={query.maxPrice ?? ""}
-                className="h-9 w-full rounded-lg border border-border-subtle bg-surface px-2 text-[13px] outline-none focus:border-brand-400 focus:bg-background"
-              />
-            </div>
-            <p className="text-[11px] text-muted">
-              Catalog range {formatPrice(priceBounds.min)} – {formatPrice(priceBounds.max)}
-            </p>
-            <button
-              type="submit"
-              className="h-9 w-full rounded-lg bg-brand-600 text-[13px] font-medium text-white transition-colors hover:bg-brand-700"
-            >
-              Apply price
-            </button>
-          </form>
-        </Group>
-
-        <Group title="Customer rating">
-          <Option href={searchHref(query, { minRating: null })} active={query.minRating === null}>
-            Any rating
+      <Group title="Aisle">
+        <div className="max-h-72 space-y-0.5 overflow-y-auto pr-1">
+          <Option href={searchHref(query, { category: "" })} active={!query.category}>
+            Every aisle
           </Option>
-          {RATINGS.map((r) => (
-            <Option
-              key={r}
-              href={searchHref(query, { minRating: r })}
-              active={query.minRating === r}
-            >
-              <span className="flex items-center gap-1.5">
-                <RatingStars rating={r} className="text-xs" />
-                <span>{r} &amp; up</span>
+          {categories.map((c) => (
+            <Option key={c.slug} href={searchHref(query, { category: c.slug })} active={query.category === c.slug}>
+              <span className="truncate">{c.name}</span>
+              <span className={`shrink-0 font-mono text-[11px] ${query.category === c.slug ? "text-page/70" : "text-muted"}`}>
+                {c.productCount}
               </span>
             </Option>
           ))}
-        </Group>
-      </div>
+        </div>
+      </Group>
+
+      <Group title="Nutri-Score">
+        <div className="space-y-0.5">
+          <Option href={searchHref(query, { nutriscore: null })} active={query.nutriscore === null}>
+            Any, including ungraded
+          </Option>
+          {GRADES.map(({ grade, label }) => (
+            <Option key={grade} href={searchHref(query, { nutriscore: grade })} active={query.nutriscore === grade}>
+              <span>{label}</span>
+              {/* The grades the option includes; the label already says it in words. */}
+              <span aria-hidden className="flex -space-x-1">
+                {gradesUpTo(grade).map((g) => (
+                  <NutriscoreChip key={g} grade={g} />
+                ))}
+              </span>
+            </Option>
+          ))}
+        </div>
+      </Group>
+
+      <Group title="Price">
+        {/* A plain GET form: the other active filters ride along as hidden
+            fields so applying a price range doesn't drop them. */}
+        <form action="/search" className="space-y-3">
+          {query.q && <input type="hidden" name="q" value={query.q} />}
+          {query.category && <input type="hidden" name="category" value={query.category} />}
+          {query.nutriscore !== null && <input type="hidden" name="nutriscore" value={query.nutriscore} />}
+          {query.sort !== "relevance" && <input type="hidden" name="sort" value={query.sort} />}
+
+          <div className="flex items-center gap-2">
+            <label className="sr-only" htmlFor={minId}>
+              Minimum price in rupees
+            </label>
+            <input
+              id={minId}
+              name="minPrice"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              placeholder="₹ min"
+              defaultValue={query.minPrice ?? ""}
+              className={`${field} h-10`}
+            />
+            <span className="text-muted" aria-hidden>
+              –
+            </span>
+            <label className="sr-only" htmlFor={maxId}>
+              Maximum price in rupees
+            </label>
+            <input
+              id={maxId}
+              name="maxPrice"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              placeholder="₹ max"
+              defaultValue={query.maxPrice ?? ""}
+              className={`${field} h-10`}
+            />
+          </div>
+          <p className="text-[12px] text-muted">
+            Shelf prices run from {formatPrice(priceBounds.min)} to {formatPrice(priceBounds.max)}
+          </p>
+          <button type="submit" className={`${button("secondary", "sm")} w-full`}>
+            Apply price
+          </button>
+        </form>
+      </Group>
     </div>
   );
 }

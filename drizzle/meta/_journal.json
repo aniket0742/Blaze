@@ -22,6 +22,20 @@
       "when": 1789892987721,
       "tag": "0002_brainy_gravity",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790442653401,
+      "tag": "0003_remove_dummyjson_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790442696203,
+      "tag": "0004_open_food_facts_catalog",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
-import { count, desc, eq, max, min } from "drizzle-orm";
+import { count, desc, eq, gt, max, min, sql } from "drizzle-orm";
 import { db } from "./db";
-import { categories, productReviews, products } from "./db/schema";
+import { categories, products } from "./db/schema";
 
 /** Cheapest and dearest item in the catalog, in paise — shown as guidance on
  *  the price filter so the inputs aren't a blind guess. */
@@ -25,14 +25,28 @@ export async function getCategoriesWithCounts() {
     .orderBy(categories.name);
 }
 
-/** Highest-rated products, used for the home page rail. */
-export async function getTopRatedProducts(limit: number) {
-  return db.select().from(products).orderBy(desc(products.rating)).limit(limit);
+/** Products Open Food Facts users scan most — a real popularity signal,
+ *  used for the home page rail. Id breaks ties so the order is stable. */
+export async function getMostScannedProducts(limit: number) {
+  return db
+    .select()
+    .from(products)
+    .orderBy(desc(products.scanCount), desc(products.id))
+    .limit(limit);
 }
 
-/** Biggest discounts, used for the home page deals rail. */
+/** The discount as a fraction of the MRP, computed from the two stored prices. */
+export const discountFraction = sql<number>`(${products.mrpPaise} - ${products.pricePaise})::float / ${products.mrpPaise}`;
+
+/** Biggest real discounts — only products whose observed price was below a
+ *  recorded MRP. Used for the home page deals. */
 export async function getBestDeals(limit: number) {
-  return db.select().from(products).orderBy(desc(products.discountPercentage)).limit(limit);
+  return db
+    .select()
+    .from(products)
+    .where(gt(products.mrpPaise, products.pricePaise))
+    .orderBy(desc(discountFraction), desc(products.id))
+    .limit(limit);
 }
 
 /** Most recently added products, used for the New Arrivals rail. */
@@ -50,7 +64,7 @@ export async function getProductsByCategory(slug: string) {
     .select()
     .from(products)
     .where(eq(products.categorySlug, slug))
-    .orderBy(desc(products.rating));
+    .orderBy(desc(products.scanCount), desc(products.id));
 }
 
 export async function getProductBySlug(slug: string) {
@@ -61,13 +75,4 @@ export async function getProductBySlug(slug: string) {
 /** Slugs for prerendering every product page. */
 export async function getAllProductSlugs() {
   return db.select({ slug: products.slug }).from(products);
-}
-
-/** Seeded reviews, newest first. Read-only — see DECISIONS.md. */
-export async function getProductReviews(productId: number) {
-  return db
-    .select()
-    .from(productReviews)
-    .where(eq(productReviews.productId, productId))
-    .orderBy(desc(productReviews.reviewedAt));
 }

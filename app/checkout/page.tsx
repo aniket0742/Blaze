@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CheckoutForm } from "@/components/checkout-form";
 import { CheckoutSummary } from "@/components/checkout-summary";
 import { EmptyState } from "@/components/empty-state";
+import { PageTitle } from "@/components/ui";
 import { loadCart } from "@/lib/cart-store";
 import { problemText, type CheckoutProblem } from "@/lib/checkout";
 import { quoteCart } from "@/lib/checkout-server";
@@ -11,20 +12,20 @@ import { getUser } from "@/lib/supabase/server";
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10">{children}</div>;
+  return <div className="mx-auto max-w-7xl px-4 pt-8 sm:px-6">{children}</div>;
 }
 
 function Problems({ problems }: { problems: CheckoutProblem[] }) {
   return (
-    <div className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-[13px] text-red-800">
-      <p className="font-semibold">Your cart needs attention before you can order.</p>
+    <div role="alert" className="rounded-md border-l-4 border-red-700 bg-red-50 px-4 py-3 text-[14px] text-red-900">
+      <p className="font-semibold">Your bag needs attention before you can order.</p>
       <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
         {problems.map((problem, i) => (
           <li key={i}>{problemText(problem)}</li>
         ))}
       </ul>
-      <Link href="/cart" className="mt-2 inline-block font-medium underline">
-        Open your cart to fix this
+      <Link href="/cart" className="mt-2 inline-block font-medium underline underline-offset-2">
+        Open your bag to fix this
       </Link>
     </div>
   );
@@ -45,7 +46,7 @@ export default async function CheckoutPage() {
         <h1 className="sr-only">Checkout</h1>
         <EmptyState
           title="Sign in to check out"
-          description="Your cart is saved. Sign in and you will come straight back here."
+          description="Your bag is saved. Sign in and you will come straight back here."
           actionHref="/signin?returnTo=%2Fcheckout"
           actionLabel="Sign in"
         />
@@ -55,25 +56,23 @@ export default async function CheckoutPage() {
 
   const quote = await quoteCart(await loadCart());
 
-  // Nothing orderable: either an empty cart, or every line has a problem.
+  // Nothing orderable: either an empty bag, or every line has a problem.
   if (quote.lines.length === 0) {
     return (
       <Shell>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Checkout</h1>
-        {quote.problems.length > 0 ? (
-          <div className="mt-5 max-w-xl">
+        <PageTitle eyebrow="Checkout" title="Nothing to check out" />
+        <div className="mt-8 max-w-2xl">
+          {quote.problems.length > 0 ? (
             <Problems problems={quote.problems} />
-          </div>
-        ) : (
-          <div className="mt-5">
+          ) : (
             <EmptyState
-              title="Your cart is empty"
-              description="There is nothing to check out yet. Browse the marketplace and add something you like."
-              actionHref="/search"
-              actionLabel="Start shopping"
+              title="Your bag is empty"
+              description="There is nothing to check out yet. Browse the aisles and add something you like."
+              actionHref="/#aisles"
+              actionLabel="Browse the aisles"
             />
-          </div>
-        )}
+          )}
+        </div>
       </Shell>
     );
   }
@@ -82,24 +81,26 @@ export default async function CheckoutPage() {
 
   return (
     <Shell>
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Checkout</h1>
-        <p className="text-[13px] text-muted">
-          Ordering as <span className="font-medium text-foreground">{user.email}</span>
-        </p>
-      </header>
+      <div className="border-b border-foreground pb-6">
+        <PageTitle eyebrow="Checkout" title="Almost yours.">
+          <p>
+            Ordering as <span className="font-medium text-foreground">{user.email}</span>. Two steps: your details,
+            then a review before anything is placed.
+          </p>
+        </PageTitle>
+      </div>
 
       {blocked && (
-        <div className="mt-4">
+        <div className="mt-6">
           <Problems problems={quote.problems} />
         </div>
       )}
 
-      <div className="mt-5 lg:grid lg:grid-cols-[1fr_360px] lg:items-start lg:gap-6">
+      <div className="mt-8 lg:grid lg:grid-cols-[1fr_380px] lg:items-start lg:gap-12">
         <CheckoutForm quote={quote} blocked={blocked} />
 
-        <div className="mt-5 lg:mt-0">
-          <div className="lg:sticky lg:top-36">
+        <div className="mt-10 lg:mt-0">
+          <div className="lg:sticky lg:top-24">
             <CheckoutSummary quote={quote} />
           </div>
         </div>

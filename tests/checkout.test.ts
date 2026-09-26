@@ -137,16 +137,19 @@ test("generateOrderNumber: omits characters that are misread aloud", () => {
   }
 });
 
-test("generateOrderNumber: two real calls do not collide", () => {
-  const seen = new Set(Array.from({ length: 500 }, () => generateOrderNumber()));
-  assert.equal(seen.size, 500);
+test("generateOrderNumber: real calls are random, not constant", () => {
+  // 40 draws from 31^5 suffixes collide by chance 0.003% of the time. It was
+  // 500 draws, which the birthday paradox made fail 0.4% of runs — flaky.
+  // Uniqueness itself is the database's job: a unique index plus a retry,
+  // covered by tests/orders.integration.ts.
+  const seen = new Set(Array.from({ length: 40 }, () => generateOrderNumber()));
+  assert.equal(seen.size, 40);
 });
 
 test("problemText: names the item so the shopper knows what to fix", () => {
   assert.match(problemText({ kind: "gone", title: "An item in your cart" }), /no longer in our catalog/);
-  assert.match(problemText({ kind: "out-of-stock", title: "Kiwi" }), /^Kiwi is out of stock/);
   assert.equal(
-    problemText({ kind: "over-stock", title: "Kiwi", available: 2, requested: 5 }),
-    "Only 2 of Kiwi left — your cart has 5.",
+    problemText({ kind: "over-limit", title: "Kiwi", limit: 10, requested: 12 }),
+    "You can order up to 10 of Kiwi — your cart has 12.",
   );
 });

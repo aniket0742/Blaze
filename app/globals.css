@@ -1,20 +1,25 @@
 @import "tailwindcss";
 
-/* Blaze is light-only. There is no dark theme and no theme switching.
-   Depth comes from a soft grey page behind white cards, not from inversion. */
+/*
+ * Blaze — an editorial market journal. Warm paper, black ink, one vermilion
+ * accent, and a serif for headlines. Light-only: there is no dark theme and no
+ * theme switching.
+ *
+ * Every text pairing here clears WCAG AA, and form-field borders clear the
+ * 3:1 non-text minimum — ratios are recorded in DECISIONS.md.
+ */
 @theme {
-  --color-brand-50: #fff3f0;
-  --color-brand-100: #ffe1da;
-  --color-brand-200: #ffc3b5;
-  --color-brand-300: #ff9b85;
-  --color-brand-400: #fa6a4c;
-  --color-brand-500: #ec4320;
-  --color-brand-600: #c9300f;
-  --color-brand-700: #a3260b;
+  /* Vermilion — the "blaze". Used sparingly: savings, the wordmark, focus. */
+  --color-brand-50: #fcefe8;
+  --color-brand-100: #f8dccd;
+  --color-brand-200: #f0b79c;
+  --color-brand-300: #e68e67;
+  --color-brand-400: #dc6a3c;
+  --color-brand-500: #d4481c;
+  --color-brand-600: #b3390f;
+  --color-brand-700: #8c2c0b;
 
-  /* Restrained elevation — cards lift off the page, they don't float. */
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
-  --shadow-lift: 0 4px 16px rgba(16, 24, 40, 0.1);
+  --shadow-lift: 0 10px 30px -12px rgba(40, 30, 15, 0.25);
 }
 
 @theme inline {
@@ -23,18 +28,21 @@
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-border-subtle: var(--border-subtle);
+  --color-border-field: var(--border-field);
   --color-muted: var(--muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-fraunces);
 }
 
 :root {
-  --page: #f5f6f8;
-  --background: #ffffff;
-  --surface: #f2f4f6;
-  --border-subtle: #e4e7ec;
-  --foreground: #14161a;
-  --muted: #5d6470;
+  --page: #f6f2ea; /* paper */
+  --background: #fffdf8; /* receipt white — raised panels and forms */
+  --surface: #ede7db; /* image wells and quiet fills */
+  --border-subtle: #dcd4c5; /* hairlines, decorative only */
+  --border-field: #948a79; /* input and control boundaries: ≥3:1 on white and paper */
+  --foreground: #1d1a16; /* ink */
+  --muted: #635b4f;
 }
 
 body {
@@ -54,7 +62,26 @@ body {
   outline-offset: 2px;
 }
 
-/* Rails scroll on touch without a visible scrollbar. */
+/*
+ * The receipt. What a shopper is charged is set the way a shop prints it: the
+ * bag, checkout and orders sit on white paper with a torn, zig-zag bottom
+ * edge. Pure CSS — a mask, no images.
+ */
+.receipt {
+  --tooth: 7px;
+  background: var(--background);
+  padding-bottom: calc(var(--tooth) + 0.75rem);
+  -webkit-mask:
+    linear-gradient(#000 0 0) top / 100% calc(100% - var(--tooth)) no-repeat,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom /
+      calc(2 * var(--tooth)) var(--tooth) repeat-x;
+  mask:
+    linear-gradient(#000 0 0) top / 100% calc(100% - var(--tooth)) no-repeat,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom /
+      calc(2 * var(--tooth)) var(--tooth) repeat-x;
+}
+
+/* Horizontal rails scroll on touch without a visible scrollbar. */
 .no-scrollbar {
   scrollbar-width: none;
 }

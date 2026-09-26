@@ -2,15 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/empty-state";
-import { ProductCard } from "@/components/product-card";
+import { ProductGrid } from "@/components/product-grid";
+import { PageTitle } from "@/components/ui";
 import { getCategoriesWithCounts, getCategory, getProductsByCategory } from "@/lib/catalog";
 
 export const revalidate = 3600;
 
-// Only 24 categories, so prerender them all rather than hitting the database
-// on every request. dynamicParams: false makes anything outside that set a real
-// HTTP 404 — without it Next serves the not-found page with a 200 status.
-// Trade-off: a newly seeded category needs a rebuild to become reachable.
+// A few dozen categories at most, so prerender them all rather than hitting
+// the database on every request. dynamicParams: false makes anything outside
+// that set a real HTTP 404 — without it Next serves the not-found page with a
+// 200. Trade-off: a newly imported category needs a rebuild to become reachable.
 export const dynamicParams = false;
 
 export async function generateStaticParams() {
@@ -18,15 +19,13 @@ export async function generateStaticParams() {
   return categories.map((c) => ({ slug: c.slug }));
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps<"/category/[slug]">): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps<"/category/[slug]">): Promise<Metadata> {
   const { slug } = await params;
   const category = await getCategory(slug);
   if (!category) return { title: "Category not found" };
   return {
     title: category.name,
-    description: `Shop ${category.name} on Blaze, with delivery dates and full prices shown up front.`,
+    description: `Shop ${category.name} on Blaze, with real shelf prices and Nutri-Scores shown up front.`,
   };
 }
 
@@ -35,41 +34,54 @@ export default async function CategoryPage({ params }: PageProps<"/category/[slu
   const category = await getCategory(slug);
   if (!category) notFound();
 
-  const items = await getProductsByCategory(slug);
+  const [items, aisles] = await Promise.all([getProductsByCategory(slug), getCategoriesWithCounts()]);
+  // The same alphabetical numbering the aisle directory uses.
+  const number = [...aisles].sort((a, b) => a.name.localeCompare(b.name)).findIndex((a) => a.slug === slug) + 1;
+  const graded = items.filter((p) => p.nutriscoreGrade).length;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-      <nav className="text-sm text-muted">
-        <Link href="/" className="hover:text-foreground">
-          Home
-        </Link>
-        <span className="mx-2" aria-hidden>
-          /
-        </span>
-        <span className="text-foreground">{category.name}</span>
+    <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6">
+      <nav aria-label="Breadcrumb">
+        <ol className="flex items-center gap-2 text-[13px] text-muted">
+          <li>
+            <Link href="/" className="hover:text-foreground">
+              Home
+            </Link>
+          </li>
+          <li aria-hidden>/</li>
+          <li>
+            <Link href="/#aisles" className="hover:text-foreground">
+              Aisles
+            </Link>
+          </li>
+        </ol>
       </nav>
 
-      <header className="mt-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{category.name}</h1>
-        <p className="text-[13px] text-muted">
-          {items.length} {items.length === 1 ? "item" : "items"}, sorted by rating
-        </p>
-      </header>
+      <div className="mt-6 border-b border-foreground pb-8">
+        <PageTitle eyebrow={`Aisle ${String(number).padStart(2, "0")}`} title={category.name}>
+          <p>
+            {items.length} {items.length === 1 ? "product" : "products"}, most scanned first
+            {graded > 0 && ` · ${graded} with a Nutri-Score`}.{" "}
+            <Link
+              href={`/search?category=${slug}`}
+              className="text-foreground underline decoration-border-field underline-offset-2 hover:decoration-foreground"
+            >
+              Filter and sort this aisle
+            </Link>
+          </p>
+        </PageTitle>
+      </div>
 
-      <div className="mt-5">
+      <div className="mt-8">
         {items.length === 0 ? (
           <EmptyState
-            title="Nothing in this category yet"
-            description="We don't stock anything here right now. Browse the full A–Z index to see what we do carry."
-            actionHref="/#browse"
-            actionLabel="Browse A–Z"
+            title="Nothing on this shelf yet"
+            description="We don't stock anything here right now. The full aisle directory shows what we do carry."
+            actionHref="/#aisles"
+            actionLabel="See every aisle"
           />
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {items.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+          <ProductGrid products={items} dense />
         )}
       </div>
     </div>

@@ -10,15 +10,13 @@ import { useSession } from "./session-provider";
 
 function noteText(note: CartItemView["note"], qty: number): string | null {
   if (!note) return null;
-  if (note.kind === "out-of-stock") return "Out of stock — remove it to check out";
-  return `Only ${qty} left, so we reduced this from ${note.from}`;
+  return `Limited to ${qty} per order, so we reduced this from ${note.from}`;
 }
 
 export function CartItemRow({ item }: { item: CartItemView }) {
   const { setCartCount } = useSession();
   const [pending, startTransition] = useTransition();
   const [failed, setFailed] = useState(false);
-  const outOfStock = item.note?.kind === "out-of-stock";
   const note = noteText(item.note, item.qty);
 
   function run(action: () => Promise<{ cartQty: number }>) {
@@ -32,47 +30,55 @@ export function CartItemRow({ item }: { item: CartItemView }) {
     });
   }
 
-  const canDecrease = !outOfStock && !pending;
-  const canIncrease = !outOfStock && !pending && item.qty < Math.min(item.stock, MAX_PER_LINE);
+  const canDecrease = !pending;
+  const canIncrease = !pending && item.qty < MAX_PER_LINE;
+
+  const step =
+    "flex h-10 w-10 items-center justify-center text-lg leading-none transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
-    <li
-      className={`flex gap-3 py-4 transition-opacity sm:gap-4 ${pending ? "opacity-60" : ""}`}
-      aria-busy={pending}
-    >
+    <li className={`flex gap-4 py-6 transition-opacity ${pending ? "opacity-60" : ""}`} aria-busy={pending}>
       <Link
         href={`/product/${item.slug}`}
-        className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-border-subtle bg-background sm:h-24 sm:w-24"
+        className="relative h-28 w-24 shrink-0 overflow-hidden rounded-xl bg-surface sm:h-32 sm:w-28"
       >
-        <Image src={item.thumbnail} alt={item.title} fill sizes="96px" className="object-contain p-1.5" />
+        <Image src={item.thumbnail} alt={item.title} fill sizes="112px" className="object-contain p-2.5 mix-blend-multiply" />
       </Link>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="truncate text-[11px] font-medium uppercase tracking-wide text-muted">
-          {item.brand ?? "Blaze Marketplace"}
-        </p>
-        <Link href={`/product/${item.slug}`} className="line-clamp-2 text-sm font-medium hover:underline">
-          {item.title}
-        </Link>
-        <p className="text-sm font-semibold">{formatPrice(item.pricePaise)}</p>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            {item.brand && (
+              <p className="truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">{item.brand}</p>
+            )}
+            <Link
+              href={`/product/${item.slug}`}
+              className="mt-0.5 line-clamp-2 text-[15px] font-medium leading-snug hover:underline hover:underline-offset-2"
+            >
+              {item.title}
+            </Link>
+            <p className="mt-1 text-[13px] text-muted">
+              {formatPrice(item.pricePaise)} each
+            </p>
+          </div>
+          <p className="shrink-0 font-mono text-[15px] font-semibold tabular-nums">{formatPrice(item.linePaise)}</p>
+        </div>
 
-        {note && (
-          <p className={`text-[12px] ${outOfStock ? "text-red-700" : "text-amber-700"}`}>{note}</p>
-        )}
-        {failed && <p className="text-[12px] text-red-700">That didn&apos;t save. Try again.</p>}
+        {note && <p className="mt-2 text-[13px] text-amber-900">{note}</p>}
+        {failed && <p className="mt-2 text-[13px] text-red-800">That didn&apos;t save. Try again.</p>}
 
-        <div className="mt-1 flex flex-wrap items-center gap-3">
-          <div className="inline-flex items-center rounded-full border border-border-subtle">
+        <div className="mt-auto flex flex-wrap items-center gap-4 pt-3">
+          <div className="inline-flex items-center overflow-hidden rounded-md border border-border-field">
             <button
               type="button"
               onClick={() => run(() => setCartQuantity(item.id, item.qty - 1))}
               disabled={!canDecrease}
               aria-label={item.qty === 1 ? `Remove ${item.title}` : `Decrease quantity of ${item.title}`}
-              className="h-9 w-9 rounded-l-full text-lg leading-none transition-colors hover:bg-surface disabled:opacity-40"
+              className={step}
             >
               −
             </button>
-            <span aria-live="polite" className="w-8 text-center text-sm font-medium tabular-nums">
+            <span aria-live="polite" className="w-9 text-center font-mono text-[14px] tabular-nums">
               {item.qty}
             </span>
             <button
@@ -80,7 +86,7 @@ export function CartItemRow({ item }: { item: CartItemView }) {
               onClick={() => run(() => setCartQuantity(item.id, item.qty + 1))}
               disabled={!canIncrease}
               aria-label={`Increase quantity of ${item.title}`}
-              className="h-9 w-9 rounded-r-full text-lg leading-none transition-colors hover:bg-surface disabled:opacity-40"
+              className={step}
             >
               +
             </button>
@@ -90,16 +96,12 @@ export function CartItemRow({ item }: { item: CartItemView }) {
             type="button"
             onClick={() => run(() => removeFromCart(item.id))}
             disabled={pending}
-            className="text-[13px] font-medium text-muted underline-offset-2 transition-colors hover:text-foreground hover:underline disabled:opacity-40"
+            className="text-[13px] font-medium text-muted underline decoration-border-field underline-offset-4 transition-colors hover:text-foreground hover:decoration-foreground disabled:opacity-40"
           >
             Remove
           </button>
         </div>
       </div>
-
-      <p className="shrink-0 text-sm font-semibold tabular-nums">
-        {outOfStock ? "—" : formatPrice(item.linePaise)}
-      </p>
     </li>
   );
 }

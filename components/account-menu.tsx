@@ -5,6 +5,10 @@ import { signOut } from "@/lib/actions/auth";
 import { UserIcon } from "./icons";
 import { useSession } from "./session-provider";
 
+const trigger =
+  "inline-flex h-10 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition-colors hover:bg-surface";
+const item = "block rounded px-3 py-2 text-sm transition-colors hover:bg-surface";
+
 /**
  * A native <details> disclosure, so the menu needs no outside-click handling
  * and closes on Escape for free — same approach as the mobile search filters.
@@ -21,10 +25,7 @@ export function AccountMenu() {
       <>
         <div className="h-10 w-10" aria-hidden />
         <noscript>
-          <Link
-            href="/signin"
-            className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-medium transition-colors hover:bg-surface"
-          >
+          <Link href="/signin" className={trigger}>
             Sign in
           </Link>
         </noscript>
@@ -34,52 +35,45 @@ export function AccountMenu() {
 
   if (!email) {
     return (
-      <Link
-        href="/signin"
-        className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-medium transition-colors hover:bg-surface"
-      >
-        Sign in
+      <Link href="/signin" className={trigger}>
+        <UserIcon />
+        {/* sr-only, not hidden: on phones the icon stands alone, and the link
+            still needs a name. */}
+        <span className="sr-only sm:not-sr-only">Sign in</span>
       </Link>
     );
   }
 
   return (
     <details className="relative">
-      <summary
-        className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-xl transition-colors hover:bg-surface"
-        aria-label={`Account, signed in as ${email}`}
-      >
+      <summary className={`${trigger} cursor-pointer list-none`} aria-label={`Account, signed in as ${email}`}>
         <UserIcon />
+        <span className="hidden sm:inline">Account</span>
       </summary>
 
-      <div className="absolute right-0 z-50 mt-1 w-56 rounded-xl border border-border-subtle bg-background p-1.5 shadow-lift">
-        <p className="truncate px-2.5 py-1.5 text-[12px] text-muted" title={email}>
+      <div className="absolute right-0 z-50 mt-2 w-60 rounded-lg border border-border-subtle bg-background p-1.5 shadow-lift">
+        <p className="px-3 pb-2 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+          Signed in
+        </p>
+        <p className="truncate px-3 pb-2 text-[13px]" title={email}>
           {email}
         </p>
-        <Link
-          href="/orders"
-          className="block rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-surface"
-        >
-          Your orders
-        </Link>
-        <Link
-          href="/cart"
-          className="block rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-surface"
-        >
-          Your cart
-        </Link>
-        {/* Signing out redirects to "/", which is not a path change when you
-            are already there — so the provider's per-navigation re-read would
-            not fire. Clearing on click keeps the header correct either way. */}
-        <form action={signOut}>
-          <button
-            type="submit"
-            onClick={() => clearSession()}
-            className="w-full rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-surface"
-          >
-            Sign out
-          </button>
-        </form>
+        <div className="border-t border-border-subtle pt-1.5">
+          <Link href="/orders" className={item}>
+            Your orders
+          </Link>
+          <Link href="/cart" className={item}>
+            Your bag
+          </Link>
+          {/* Signing out redirects to "/", which is not a path change when you
+              are already there — so the provider's per-navigation re-read would
+              not fire. Clearing on click keeps the header correct either way. */}
+          <form action={signOut}>
+            <button type="submit" onClick={() => clearSession()} className={`${item} w-full text-left`}>
+              Sign out
+            </button>
+          </form>
+        </div>
       </div>
     </details>
   );

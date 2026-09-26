@@ -2,80 +2,55 @@ import Image from "next/image";
 import Link from "next/link";
 import type { CheckoutQuote } from "@/lib/checkout";
 import { formatPrice } from "@/lib/format";
+import { Receipt, ReceiptRow } from "./ui";
 
 /**
- * What is being bought and what it costs. Every figure is computed on the
- * server from the catalog — this component only formats it.
+ * What is being bought and what it costs, printed as a receipt. Every figure
+ * is computed on the server from the catalog — this component only formats it.
  */
 export function CheckoutSummary({ quote }: { quote: CheckoutQuote }) {
   return (
-    <div className="rounded-2xl border border-border-subtle bg-background p-4 shadow-card sm:p-5">
+    <Receipt>
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-semibold tracking-tight">Order summary</h2>
-        <Link href="/cart" className="text-[13px] font-medium text-brand-600 hover:underline">
-          Edit cart
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted">Order summary</h2>
+        <Link href="/cart" className="text-[13px] font-medium underline decoration-border-field underline-offset-2 hover:decoration-foreground">
+          Edit bag
         </Link>
       </div>
 
-      <ul className="mt-3 divide-y divide-border-subtle">
+      <ul className="mt-4 space-y-3 border-t border-dashed border-border-field pt-4">
         {quote.lines.map((line) => (
-          <li key={line.productId} className="flex gap-3 py-3">
+          <li key={line.productId} className="flex gap-3">
             <Link
               href={`/product/${line.slug}`}
-              className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border-subtle bg-background"
+              className="relative h-14 w-12 shrink-0 overflow-hidden rounded-md bg-surface"
             >
-              <Image
-                src={line.thumbnail}
-                alt={line.title}
-                fill
-                sizes="56px"
-                className="object-contain p-1"
-              />
+              <Image src={line.thumbnail} alt={line.title} fill sizes="48px" className="object-contain p-1 mix-blend-multiply" />
             </Link>
             <div className="min-w-0 flex-1">
-              <Link
-                href={`/product/${line.slug}`}
-                className="line-clamp-2 text-[13px] font-medium hover:underline"
-              >
+              <Link href={`/product/${line.slug}`} className="line-clamp-2 text-[13px] font-medium leading-snug hover:underline">
                 {line.title}
               </Link>
-              <p className="mt-0.5 text-[12px] text-muted">
-                Qty {line.quantity} × {formatPrice(line.unitPricePaise)}
+              <p className="mt-0.5 font-mono text-[12px] text-muted">
+                {line.quantity} × {formatPrice(line.unitPricePaise)}
               </p>
             </div>
-            <p className="shrink-0 text-[13px] font-semibold tabular-nums">
-              {formatPrice(line.linePaise)}
-            </p>
+            <p className="shrink-0 font-mono text-[13px] tabular-nums">{formatPrice(line.linePaise)}</p>
           </li>
         ))}
       </ul>
 
-      <dl className="mt-3 space-y-2 border-t border-border-subtle pt-3 text-sm">
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted">
-            Subtotal ({quote.totalQty} {quote.totalQty === 1 ? "item" : "items"})
-          </dt>
-          <dd className="font-medium tabular-nums">{formatPrice(quote.subtotalPaise)}</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted">Delivery</dt>
-          <dd className="font-medium text-emerald-700">
-            {quote.deliveryPaise === 0 ? "Free" : formatPrice(quote.deliveryPaise)}
-          </dd>
-        </div>
-        {quote.arrivesBy && (
-          <div className="flex justify-between gap-3">
-            <dt className="text-muted">Arrives</dt>
-            <dd className="text-right font-medium">{quote.arrivesBy.replace(/^Arrives /, "")}</dd>
-          </div>
-        )}
-        <div className="flex justify-between gap-3 border-t border-border-subtle pt-2.5 text-base">
-          <dt className="font-semibold">Total</dt>
-          <dd className="font-semibold tabular-nums">{formatPrice(quote.totalPaise)}</dd>
-        </div>
+      <dl className="mt-4 space-y-2 border-t border-dashed border-border-field pt-4">
+        <ReceiptRow
+          label={`Subtotal, ${quote.totalQty} ${quote.totalQty === 1 ? "item" : "items"}`}
+          value={formatPrice(quote.subtotalPaise)}
+        />
+        <ReceiptRow label="Delivery" value={quote.deliveryPaise === 0 ? "Free" : formatPrice(quote.deliveryPaise)} />
       </dl>
-
+      <dl className="mt-4 border-t border-dashed border-border-field pt-4">
+        <ReceiptRow label="Total" value={formatPrice(quote.totalPaise)} strong />
+      </dl>
       <p className="mt-1 text-[12px] text-muted">Inclusive of all taxes</p>
-    </div>
+    </Receipt>
   );
 }

@@ -70,35 +70,35 @@ test("cartQuantity: sums line quantities", () => {
   assert.equal(cartQuantity([{ i: 1, q: 2 }, { i: 2, q: 3 }]), 5);
 });
 
-test("clampQuantity: limits to stock", () => {
-  assert.equal(clampQuantity(4, 1), 1);
-  assert.equal(clampQuantity(2, 5), 2);
+test("clampQuantity: keeps a quantity within the per-line limit", () => {
+  assert.equal(clampQuantity(1), 1);
+  assert.equal(clampQuantity(4), 4);
 });
 
-test("clampQuantity: limits to the per-order maximum", () => {
-  assert.equal(clampQuantity(50, 500), MAX_PER_LINE);
-  assert.equal(clampQuantity(MAX_PER_LINE, 500), MAX_PER_LINE);
+test("clampQuantity: limits to the per-line maximum", () => {
+  assert.equal(clampQuantity(50), MAX_PER_LINE);
+  assert.equal(clampQuantity(MAX_PER_LINE), MAX_PER_LINE);
+});
+
+test("clampQuantity: truncates fractions rather than rounding up", () => {
+  assert.equal(clampQuantity(2.9), 2);
 });
 
 test("clampQuantity: zero and below mean remove the line", () => {
-  assert.equal(clampQuantity(0, 5), 0);
-  assert.equal(clampQuantity(-3, 5), 0);
-});
-
-test("clampQuantity: out of stock yields nothing orderable", () => {
-  assert.equal(clampQuantity(3, 0), 0);
+  assert.equal(clampQuantity(0), 0);
+  assert.equal(clampQuantity(-3), 0);
 });
 
 test("clampQuantity: non-finite input fails closed rather than maxing out", () => {
-  assert.equal(clampQuantity(Number("abc"), 5), 0);
-  assert.equal(clampQuantity(Number.NaN, 5), 0);
+  assert.equal(clampQuantity(Number("abc")), 0);
+  assert.equal(clampQuantity(Number.NaN), 0);
   // Infinity can only come from a tampered call. Dropping the line is safer
-  // than reading it as "as many as you have".
-  assert.equal(clampQuantity(Infinity, 5), 0);
-  assert.equal(clampQuantity(-Infinity, 5), 0);
+  // than reading it as "as many as allowed".
+  assert.equal(clampQuantity(Infinity), 0);
+  assert.equal(clampQuantity(-Infinity), 0);
 });
 
-// --- merge rule: guest quantity + user quantity, capped at stock ------------
+// --- merge rule: guest quantity + user quantity, capped at the limit --------
 // Capping needs the catalog, so it is covered by tests/merge.integration.ts.
 // These cover the pure summing half.
 
@@ -142,10 +142,10 @@ test("sumCarts: overlapping and disjoint products together", () => {
   );
 });
 
-test("sumCarts: a sum over the per-order limit is left for stock capping", () => {
+test("sumCarts: a sum over the per-line limit is left for reconcileLines to cap", () => {
   // sumCarts is pure arithmetic; clamping happens in reconcileLines.
   assert.deepEqual(sumCarts([{ i: 1, q: 9 }], [{ i: 1, q: 8 }]), [{ i: 1, q: 17 }]);
-  assert.equal(clampQuantity(17, 500), MAX_PER_LINE);
+  assert.equal(clampQuantity(17), MAX_PER_LINE);
 });
 
 test("sumCarts: does not mutate either input", () => {

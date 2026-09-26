@@ -11,17 +11,17 @@ function pageWindow(page: number, pageCount: number): number[] {
   return pages;
 }
 
-const linkClass =
-  "inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-border-subtle px-3 text-[13px] transition-colors hover:border-brand-300 hover:text-brand-600";
+const cell =
+  "inline-flex h-10 min-w-10 items-center justify-center rounded-md px-3 font-mono text-[13px] transition-colors";
 
 export function Pagination({ query, page, pageCount }: { query: SearchQuery; page: number; pageCount: number }) {
   if (pageCount <= 1) return null;
 
   return (
-    <nav aria-label="Search results pages" className="mt-6 flex flex-wrap items-center gap-1.5">
+    <nav aria-label="Result pages" className="mt-12 flex flex-wrap items-center justify-center gap-1 border-t border-border-subtle pt-6">
       {page > 1 && (
-        <Link href={searchHref(query, { page: page - 1 })} className={linkClass} rel="prev">
-          ← Prev
+        <Link href={searchHref(query, { page: page - 1 })} className={`${cell} hover:bg-surface`} rel="prev">
+          ← Previous
         </Link>
       )}
 
@@ -30,18 +30,15 @@ export function Pagination({ query, page, pageCount }: { query: SearchQuery; pag
           key={p}
           href={searchHref(query, { page: p })}
           aria-current={p === page ? "page" : undefined}
-          className={
-            p === page
-              ? "inline-flex h-9 min-w-9 items-center justify-center rounded-lg bg-brand-600 px-3 text-[13px] font-medium text-white"
-              : linkClass
-          }
+          aria-label={`Page ${p}`}
+          className={`${cell} ${p === page ? "bg-foreground text-page" : "hover:bg-surface"}`}
         >
           {p}
         </Link>
       ))}
 
       {page < pageCount && (
-        <Link href={searchHref(query, { page: page + 1 })} className={linkClass} rel="next">
+        <Link href={searchHref(query, { page: page + 1 })} className={`${cell} hover:bg-surface`} rel="next">
           Next →
         </Link>
       )}

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/empty-state";
 import { OrderCard } from "@/components/order-card";
+import { PageTitle } from "@/components/ui";
 import { listOrders } from "@/lib/orders-server";
 import { getUser } from "@/lib/supabase/server";
 
@@ -23,40 +23,34 @@ export default async function OrdersPage() {
   const orders = await listOrders(user.id);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Your orders</h1>
-        {orders.length > 0 && (
-          <p className="text-[13px] text-muted">
-            {orders.length} {orders.length === 1 ? "order" : "orders"}
-          </p>
-        )}
-      </header>
+    <div className="mx-auto max-w-3xl px-4 pt-8 sm:px-6">
+      <div className="border-b border-foreground pb-6">
+        <PageTitle eyebrow="Your account" title="Your orders">
+          {orders.length > 0 && (
+            <p>
+              {orders.length} {orders.length === 1 ? "order" : "orders"}, newest first. Demo orders — nothing was
+              charged and nothing ships.
+            </p>
+          )}
+        </PageTitle>
+      </div>
 
-      {orders.length === 0 ? (
-        <div className="mt-5">
+      <div className="mt-8">
+        {orders.length === 0 ? (
           <EmptyState
             title="No orders yet"
             description="Orders you place will appear here, with everything you bought and what you paid."
-            actionHref="/search"
-            actionLabel="Start shopping"
+            actionHref="/#aisles"
+            actionLabel="Browse the aisles"
           />
-        </div>
-      ) : (
-        <>
-          <ul className="mt-5 space-y-4">
+        ) : (
+          <ul className="space-y-6">
             {orders.map((order) => (
               <OrderCard key={order.orderNumber} order={order} />
             ))}
           </ul>
-          <p className="mt-5 text-center text-[12px] text-muted">
-            Demo orders. Nothing was charged and nothing ships.{" "}
-            <Link href="/search" className="font-medium text-brand-600 hover:underline">
-              Keep shopping
-            </Link>
-          </p>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }

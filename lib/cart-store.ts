@@ -56,15 +56,13 @@ export async function writeUserCart(userId: string, lines: CartLine[]): Promise<
   });
 }
 
-/** Drops lines whose product has left the catalog and caps the rest at stock.
- *  `keepOutOfStock` is what separates a cart render from a merge. */
-export async function reconcileLines(
-  lines: CartLine[],
-  { keepOutOfStock }: { keepOutOfStock: boolean },
-): Promise<CartLine[]> {
+/** Drops lines whose product has left the catalog and caps the rest at the
+ *  per-line limit. There is no stock to cap against — a product in the catalog
+ *  has a real current price, and that is what makes it available. */
+export async function reconcileLines(lines: CartLine[]): Promise<CartLine[]> {
   if (lines.length === 0) return [];
   const rows = await db
-    .select({ id: products.id, stock: products.stock })
+    .select({ id: products.id })
     .from(products)
     .where(
       inArray(
@@ -72,13 +70,11 @@ export async function reconcileLines(
         lines.map((l) => l.i),
       ),
     );
-  const stockById = new Map(rows.map((r) => [r.id, r.stock]));
+  const inCatalog = new Set(rows.map((r) => r.id));
 
   return lines.flatMap((line) => {
-    const stock = stockById.get(line.i);
-    if (stock === undefined) return [];
-    if (stock < 1) return keepOutOfStock ? [line] : [];
-    const q = clampQuantity(line.q, stock);
+    if (!inCatalog.has(line.i)) return [];
+    const q = clampQuantity(line.q);
     return q > 0 ? [{ i: line.i, q }] : [];
   });
 }
@@ -101,16 +97,16 @@ export async function saveCart(lines: CartLine[]): Promise<void> {
 
 /**
  * Folds the guest cookie into the account cart at sign-in. Quantities are
- * SUMMED and then capped at current stock; stale and out-of-stock items are
- * dropped. The cookie is cleared only after the write succeeds, so a failure
- * leaves the guest cart intact to retry.
+ * SUMMED and then capped at the per-line limit; items no longer in the catalog
+ * are dropped. The cookie is cleared only after the write succeeds, so a
+ * failure leaves the guest cart intact to retry.
  */
 export async function mergeGuestCart(userId: string): Promise<void> {
   const guest = await readGuestCart();
   if (guest.length === 0) return;
 
   const existing = await readUserCart(userId);
-  const merged = await reconcileLines(sumCarts(guest, existing), { keepOutOfStock: false });
+  const merged = await reconcileLines(sumCarts(guest, existing));
 
   await writeUserCart(userId, merged);
   await clearGuestCart();

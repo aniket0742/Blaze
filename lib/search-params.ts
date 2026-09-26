@@ -3,6 +3,7 @@
  * components (the sort select) can use them without pulling the Postgres
  * driver into the browser bundle.
  */
+import { NUTRISCORE_GRADES, isNutriscoreGrade, type NutriscoreGrade } from "./product";
 
 export const PAGE_SIZE = 24;
 
@@ -10,7 +11,8 @@ export const SORT_OPTIONS = [
   { value: "relevance", label: "Relevance" },
   { value: "price-asc", label: "Price: low to high" },
   { value: "price-desc", label: "Price: high to low" },
-  { value: "rating", label: "Customer rating" },
+  { value: "nutriscore", label: "Nutri-Score: best first" },
+  { value: "popular", label: "Most scanned" },
   { value: "newest", label: "Newest arrivals" },
   { value: "discount", label: "Biggest discount" },
 ] as const;
@@ -23,7 +25,8 @@ export type SearchQuery = {
   /** Rupees, as typed by the shopper. Converted to paise at query time. */
   minPrice: number | null;
   maxPrice: number | null;
-  minRating: number | null;
+  /** The worst Nutri-Score still accepted: "b" means A or B. */
+  nutriscore: NutriscoreGrade | null;
   sort: SortKey;
   page: number;
 };
@@ -49,7 +52,7 @@ export function parseSearchQuery(raw: Record<string, string | string[] | undefin
     [minPrice, maxPrice] = [maxPrice, minPrice];
   }
 
-  const rating = positiveNumber(raw.minRating);
+  const grade = first(raw.nutriscore).toLowerCase();
   const page = Math.trunc(Number(first(raw.page)));
 
   return {
@@ -57,7 +60,7 @@ export function parseSearchQuery(raw: Record<string, string | string[] | undefin
     category: first(raw.category),
     minPrice,
     maxPrice,
-    minRating: rating !== null && rating >= 1 && rating <= 5 ? rating : null,
+    nutriscore: isNutriscoreGrade(grade) ? grade : null,
     sort,
     page: Number.isFinite(page) && page > 0 ? page : 1,
   };
@@ -72,7 +75,7 @@ export function searchHref(current: SearchQuery, patch: Partial<SearchQuery>): s
   if (next.category) sp.set("category", next.category);
   if (next.minPrice !== null) sp.set("minPrice", String(next.minPrice));
   if (next.maxPrice !== null) sp.set("maxPrice", String(next.maxPrice));
-  if (next.minRating !== null) sp.set("minRating", String(next.minRating));
+  if (next.nutriscore !== null) sp.set("nutriscore", next.nutriscore);
   if (next.sort !== "relevance") sp.set("sort", next.sort);
   if (next.page > 1) sp.set("page", String(next.page));
   const qs = sp.toString();
@@ -80,5 +83,10 @@ export function searchHref(current: SearchQuery, patch: Partial<SearchQuery>): s
 }
 
 export function hasActiveFilters(q: SearchQuery): boolean {
-  return Boolean(q.category || q.minPrice !== null || q.maxPrice !== null || q.minRating !== null);
+  return Boolean(q.category || q.minPrice !== null || q.maxPrice !== null || q.nutriscore !== null);
+}
+
+/** Every grade at least as good as the chosen one: "b" → ["a", "b"]. */
+export function gradesUpTo(grade: NutriscoreGrade): NutriscoreGrade[] {
+  return NUTRISCORE_GRADES.slice(0, NUTRISCORE_GRADES.indexOf(grade) + 1);
 }

@@ -2,18 +2,37 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
 import { Pagination } from "@/components/pagination";
-import { ProductCard } from "@/components/product-card";
+import { ProductGrid } from "@/components/product-grid";
 import { SearchFilters } from "@/components/search-filters";
 import { SortSelect } from "@/components/sort-select";
+import { PageTitle } from "@/components/ui";
 import { getCategoriesWithCounts, getPriceBounds } from "@/lib/catalog";
 import { formatPrice } from "@/lib/format";
-import { hasActiveFilters, parseSearchQuery, searchHref } from "@/lib/search-params";
+import { hasActiveFilters, parseSearchQuery, searchHref, type SearchQuery } from "@/lib/search-params";
 import { searchProducts } from "@/lib/search";
 
 export const metadata: Metadata = {
   title: "Search",
   robots: { index: false },
 };
+
+/** The header's editorial links land here, so the title says what is showing. */
+function titleFor(q: SearchQuery, categoryName: string | undefined): string {
+  if (q.q) return `“${q.q}”`;
+  if (categoryName) return categoryName;
+  switch (q.sort) {
+    case "discount":
+      return "Price watch";
+    case "popular":
+      return "Most scanned";
+    case "newest":
+      return "New to the shelf";
+    case "nutriscore":
+      return "Best Nutri-Score first";
+    default:
+      return "Everything on the shelves";
+  }
+}
 
 export default async function SearchPage({ searchParams }: PageProps<"/search">) {
   const query = parseSearchQuery(await searchParams);
@@ -34,87 +53,82 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
       }`,
       href: searchHref(query, { minPrice: null, maxPrice: null }),
     },
-    query.minRating !== null && {
-      label: `${query.minRating} stars & up`,
-      href: searchHref(query, { minRating: null }),
+    query.nutriscore !== null && {
+      label:
+        query.nutriscore === "a" ? "Nutri-Score A" : `Nutri-Score A–${query.nutriscore.toUpperCase()}`,
+      href: searchHref(query, { nutriscore: null }),
     },
   ].filter(Boolean) as { label: string; href: string }[];
 
   const filterProps = { categories, query, priceBounds };
+  const count = `${results.total} ${results.total === 1 ? "product" : "products"}`;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            {query.q ? `Results for “${query.q}”` : "All products"}
-          </h1>
-          <p className="mt-1 text-[13px] text-muted">
-            {results.total === 0
-              ? "No matching products"
-              : `${results.total} ${results.total === 1 ? "product" : "products"}`}
+    <div className="mx-auto max-w-7xl px-4 pt-8 sm:px-6">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-foreground pb-6">
+        <PageTitle eyebrow={query.q ? "Search results" : "Browse"} title={titleFor(query, categoryName)}>
+          <p>
+            {results.total === 0 ? "No matching products" : count}
             {results.pageCount > 1 && ` · page ${results.page} of ${results.pageCount}`}
           </p>
-        </div>
+        </PageTitle>
         <SortSelect query={query} />
-      </header>
+      </div>
 
       {chips.length > 0 && (
-        <ul className="mt-4 flex flex-wrap items-center gap-2">
+        <ul className="mt-4 flex flex-wrap items-center gap-2" aria-label="Active filters">
           {chips.map((chip) => (
             <li key={chip.href}>
               <Link
                 href={chip.href}
-                className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-[12px] font-medium text-brand-700 transition-colors hover:border-brand-400"
+                className="inline-flex items-center gap-2 rounded-full bg-foreground py-1 pl-3 pr-2 text-[13px] font-medium text-page transition-colors hover:bg-foreground/85"
               >
                 {chip.label}
-                <span aria-hidden>×</span>
-                <span className="sr-only">Remove filter</span>
+                <span aria-hidden className="text-page/70">
+                  ✕
+                </span>
+                <span className="sr-only">— remove this filter</span>
               </Link>
             </li>
           ))}
         </ul>
       )}
 
-      <div className="mt-5 lg:grid lg:grid-cols-[260px_1fr] lg:gap-6">
-        {/* Mobile: a native disclosure, so filters need no JavaScript. */}
-        <details className="mb-4 lg:hidden">
-          <summary className="cursor-pointer rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-[13px] font-medium shadow-card">
-            Filters{hasActiveFilters(query) && ` (${chips.length})`}
+      <div className="mt-8 lg:grid lg:grid-cols-[240px_1fr] lg:gap-10">
+        {/* Phones and tablets: a native disclosure, so filters need no JavaScript. */}
+        <details className="mb-6 lg:hidden">
+          <summary className="flex cursor-pointer list-none items-center justify-between rounded-md border border-border-field bg-background px-4 py-3 text-sm font-medium">
+            <span>
+              Filters{hasActiveFilters(query) && ` · ${chips.length} on`}
+            </span>
+            <span aria-hidden className="text-muted">
+              +
+            </span>
           </summary>
           <div className="mt-3">
             <SearchFilters {...filterProps} idPrefix="m" />
           </div>
         </details>
 
-        <aside className="hidden lg:block">
+        <aside className="hidden lg:block" aria-label="Filters">
           <SearchFilters {...filterProps} idPrefix="d" />
         </aside>
 
         <div>
           {results.items.length === 0 ? (
             <EmptyState
-              title="No products match this search"
+              title="Nothing on the shelves matches that"
               description="Try fewer filters, a wider price range, or a different spelling."
               actionHref={
                 hasActiveFilters(query)
-                  ? searchHref(query, {
-                      category: "",
-                      minPrice: null,
-                      maxPrice: null,
-                      minRating: null,
-                    })
+                  ? searchHref(query, { category: "", minPrice: null, maxPrice: null, nutriscore: null })
                   : "/"
               }
               actionLabel={hasActiveFilters(query) ? "Clear filters" : "Back to home"}
             />
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {results.items.map((p) => (
-                  <ProductCard key={p.id} product={p} />
-                ))}
-              </div>
+              <ProductGrid products={results.items} />
               <Pagination query={query} page={results.page} pageCount={results.pageCount} />
             </>
           )}

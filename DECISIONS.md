@@ -671,3 +671,349 @@ Signing in, signing up and signing out all end in a redirect, so re-reading per 
 **Why:** the page is a stack of modules that each own an `<h2>`, so the document had no top-level heading at all — every other page has one. That is both a screen-reader outline problem and an SEO one, on the single most important page.
 
 **Why hidden:** the design's entry point is the deals module, not a page title. Rendering a visible `<h1>` would mean redesigning the top of the page to justify it; the heading is for the document outline, so the outline is where it belongs.
+
+---
+
+## 2026-09-26 — The catalog is Open Food Facts, priced from Open Prices
+
+**Context:** 8x changed the brief. The backend must run on a working database and a real API — not mock data. DummyJSON is a mock-data service, so it had to go.
+
+**Chosen:** products come from **Open Food Facts**; prices come from **Open Prices**, the Open Food Facts project's companion database of real prices recorded from real shops (receipts and shelf photos). The catalog is Indian products priced in rupees.
+
+**Why a second service was needed — measured, not assumed:** an Open Food Facts product carries 374 fields and not one of them is commercial. No price, stock, rating, review, shipping, warranty, discount or MRP (checked on Nutella, `3017620422003`). A store cannot check out on that, and inventing prices is exactly the mock data the new brief rules out. Open Prices is documented, public, and is the only real source of prices for these products.
+
+**Why India and rupees:** Open Prices holds 239,593 EUR observations but only 400 in INR — yet those 400 cover 374 distinct products, enough for a catalog, and they are recognisable Indian products (Maggi, Karachi Bakery, Epigamia, Country Delight) at real shelf prices. Staying in rupees means **no currency conversion at all** — the fixed ₹85 = $1 rate is gone — and the checkout's India-specific address rules (PIN, states, +91) still fit.
+
+**Rejected:**
+- *Europe / EUR* — a far larger catalog, but the store would switch currency and the India-shaped checkout would no longer make sense.
+- *Assigning prices ourselves* — any number we chose would be invented.
+
+---
+
+## 2026-09-26 — Open Food Facts products only
+
+**Chosen:** the import requests prices with `product__source=off`, so every product is an Open Food Facts product. Open Prices also covers items from Open Beauty Facts, Open Products Facts and Open Pet Food Facts; those are separate databases with separate APIs, and are left out.
+
+**Also left out:** a barcode Open Food Facts answers with `product_found_with_a_different_product_type` — the barcode exists, but not as a food product. Found by the importer's dry run, which initially treated that 404 as a network failure and stopped.
+
+---
+
+## 2026-09-26 — Import into Postgres; never call the APIs at request time
+
+**Chosen:** `npm run db:seed` imports the catalog into the existing tables. Pages keep reading Postgres, and the catalog stays prerendered.
+
+**Why:** the documented limits are 15 product reads and 10 searches a minute per IP, and a bulk search returned **HTTP 503** — "not available to anonymous users" — when tested. Calling Open Food Facts per page view would fail on the first busy afternoon. The docs ask anyone needing more than a few hundred products not to crawl, and the import reads each product once.
+
+**How the importer behaves:**
+- Reads are paced at one per 6.5 s — about 9 a minute, well inside 15.
+- 429 and 503 are retried with a growing wait; any other failure **aborts** the import, so a flaky network can never produce a half-empty catalog.
+- Each product is cached under `node_modules/.cache`, so an interrupted import resumes and a repeat import is fast.
+- `--dry-run` fetches and reports without writing, which is how the import was checked before the old catalog was touched.
+- It is a full sync in one transaction: upsert on barcode, then remove what the sources no longer support.
+- `OFF_USER_AGENT` identifies the client, as both services require. It is server-only — not `NEXT_PUBLIC_` — so it never reaches a browser.
+
+---
+
+## 2026-09-26 — Which observation sets the price
+
+**Chosen:** the latest *usable* observation. Usable means a per-unit (not per-kilogram) rupee price for a specific product, not flagged as a duplicate, and not a clearance, second-hand or multi-buy price — none of those is a normal shelf price for one new unit.
+
+**MRP:** the pre-discount price the shopper recorded, when they recorded one; otherwise the MRP equals the price and no discount is shown. Every "% off" in Blaze is a real one, which is why the deals module is now headed **Below MRP** rather than promising anything.
+
+**Transparency:** the product page states when and where the price comes from — "Shelf price seen in a shop on 13 Sep 2025, via Open Prices".
+
+---
+
+## 2026-09-26 — No stock (supersedes the stock decisions from Milestones 4 and 6)
+
+**Chosen:** stock counts are gone. A product is available if it is in the catalog — and it is in the catalog only if it has a real current price. The ten-per-line cap is now the only quantity limit.
+
+**Why:** neither API has stock, and any number we seeded would be invented. This supersedes "Cart reconciliation: stale lines are dropped, out-of-stock lines are kept", the stock half of "Guest cart merge: SUM quantities, then cap at stock", and "Stock is re-validated at checkout, but not decremented".
+
+**What still holds:** the merge still sums, then caps at the limit; products that left the catalog are still dropped; checkout still re-quotes from the database. It now refuses a stored quantity above the limit rather than trimming it, since the app never writes one.
+
+---
+
+## 2026-09-26 — Nutri-Score and "Most scanned" replace ratings and reviews
+
+**Chosen:** the rating stars, reviews and histogram are removed, and the `product_reviews` table is dropped. The rating filter and sort become **Nutri-Score** (A–E, computed by Open Food Facts), and "Top rated" becomes **Most scanned**, ordered by Open Food Facts' own count of unique scans.
+
+**Why:** no source has ratings or reviews. Nutri-Score is a real, meaningful quality signal for food, and scan counts are a real popularity signal. Both are shown with the schemes' own wording.
+
+**Accessibility:** the badge uses the scheme's official colours with whichever text colour clears WCAG AA. Grade E's official red fails with both white (4.15:1) and dark text (4.37:1), so it is darkened the minimum needed — `#E63E11` → `#D83A0F`, 4.63:1 with white.
+
+---
+
+## 2026-09-26 — No delivery dates
+
+**Chosen:** "Arrives …" is removed from cards, product pages, the cart and checkout, and new orders store no promised date.
+
+**Why:** the dates were computed from DummyJSON's shipping strings. Nothing real replaces them, and a delivery promise is a claim a store should be able to keep.
+
+**What stays:** `orders.arrives_by`. Orders placed before the migration were promised a date, and that promise is part of their record.
+
+---
+
+## 2026-09-26 — Ingredients, allergens and nutrition on the product page
+
+**Chosen:** the import reads each product's ingredients, allergens and per-100 nutrition from the Open Food Facts product API. The product page shows them, with the product's Nutri-Score, NOVA group, pack size, labels and barcode.
+
+**Two details that matter:**
+- Nutrition is labelled per 100 g **or per 100 ml**, as the source reports it. A milkshake's figures are per 100 ml; printing "per 100 g" would be wrong.
+- A section the source has nothing for says so. An empty allergen list reads "None recorded on Open Food Facts. Check the pack before relying on this" — never "contains no allergens".
+
+---
+
+## 2026-09-26 — Departments are real Open Food Facts categories
+
+**Chosen:** 17 departments, each a real tag from the Open Food Facts category taxonomy, named with the taxonomy's own English names. A product lands in the first department its tags contain, most specific first — a chocolate milkshake tagged as both a dairy and a beverage is filed under Dairies.
+
+**Left out:** products with no category tags, or only free-text tags outside the taxonomy (`en:lime-pickle`, `en:butter-milk`). Filing them anywhere would mean inventing a category.
+
+**Why the taxonomy's names, even the clumsy ones:** "Beverages and beverages preparations" is not how a merchandiser would write it, but it is Open Food Facts' name. Choosing which tags are departments is a store decision; renaming them would be putting words in the source's mouth.
+
+---
+
+## 2026-09-26 — Barcode is the natural key; ids start at 1000
+
+**Chosen:** `products.barcode` (text, unique) identifies a product. `id` stays the integer primary key, now generated as an identity starting at **1000**.
+
+**Why text:** EAN and UPC codes can start with zero, which an integer silently drops.
+
+**Why keep the integer id:** carts and order lines reference it. Keeping it means no foreign key changes type, and the import upserts on barcode so a product keeps its id across syncs.
+
+**Why 1000:** DummyJSON ids ran 1–194, and a returning guest's cart cookie may still hold them. Starting above that range means an old cookie can only ever point at nothing — dropped as stale — and never at a different product.
+
+---
+
+## 2026-09-26 — Prices show their paise
+
+**Chosen:** `formatPrice` prints whole rupees as `₹120`, and anything else with its paise, `₹3,766.68`.
+
+**Why, found during this migration:** it rounded everything to whole rupees. DummyJSON hid that, because its converted prices were never shown against anything. Real shelf prices can carry paise, and a price that does not match what was recorded is wrong. Rounding per line also lets a cart's lines stop adding up to its total — 3 × ₹12.50 shows as 3 × ₹13 against a ₹37.50 total.
+
+---
+
+## 2026-09-26 — Missing data is shown as missing
+
+**Chosen:** a product with no brand in Open Food Facts shows no brand line — not "Unbranded", not "Blaze Marketplace". A product with no generic name has no description.
+
+**Why:** an absent field in the source means *unknown*, not *none*. Printing a placeholder turns a gap in the data into a claim about the product.
+
+---
+
+## 2026-09-26 — Licensing and attribution
+
+Both sources were checked before shipping.
+
+| Source | Data | Images | What reuse requires |
+|---|---|---|---|
+| Open Food Facts | Open Database License; individual contents under the Database Contents License | CC BY-SA | "Mention the licence and attribute the authorship to Open Food Facts with a link to https://openfoodfacts.org … or the product page, when the information and data … pertain to a specific product." Derivative works under the same conditions. Data is provided as-is. |
+| Open Prices | Open Database License | — | "Comply with the OdBL licence, mentioning the source of your data, and ensuring to avoid combining non free data you can't release legally as open data." |
+
+**How Blaze meets them:**
+- The site footer names both sources and both licences, with links.
+- Every product page links to **that product's own** Open Food Facts page and Open Prices page, names the licences, and says the data is as-is.
+- The catalog tables are a derivative database of two ODbL databases. Blaze adds no non-free data to them, and they would be shared under the ODbL if the database itself were ever published.
+
+---
+
+## 2026-09-26 — The migration: two files, one transaction, a verified backup
+
+**Backup first.** `pg_dump` is not installed, so two independent rollback points were taken and verified before anything changed:
+1. an exact copy of every app table in a separate schema, `backup_m9a`, in the same database — drizzle never touches it;
+2. a JSON export of every row, in `backups/` (gitignored, because orders contain names, addresses and phone numbers).
+
+Both matched the live tables by row count and by an md5 over every row in primary-key order. `backups/2026-09-26-pre-off-migration/rollback.sql` restores the old catalog from `backup_m9a`; it was proved by running it against the migrated database inside a transaction and rolling that back.
+
+**Two migrations.** `0003` drops the DummyJSON-only columns and the reviews table; `0004` adds the Open Food Facts columns. They are split because drizzle-kit asks interactively whether a new column is a rename whenever one migration both drops and adds columns on the same table, and the prompt cannot be answered non-interactively. Splitting also leaves each file doing one thing.
+
+**The data transition is inside `0003`.** The new columns are `NOT NULL`, so the old rows must go first, and drizzle applies every pending migration in one transaction — a failure anywhere leaves the old catalog untouched. On a fresh database the two deletes are no-ops.
+
+**Order snapshots are untouched.** Deleting the DummyJSON products set `order_items.product_id` to `NULL`, as designed in Milestone 7; every order still renders its own title, price and image. Those images live on DummyJSON's CDN, so `cdn.dummyjson.com` stays in `next.config.ts` — not as a catalog source, but so orders placed before the migration keep rendering.
+
+---
+
+## 2026-09-26 — What the import produced
+
+The first import, run 2026-09-26, after a full dry run against the live APIs:
+
+| | |
+|---|---|
+| Open Food Facts products with a rupee price on Open Prices | 315 |
+| … with a usable shelf price | 314 |
+| **Imported** | **265 products in 17 departments** |
+| Left out — no category in the taxonomy | 30 |
+| Left out — no product name | 12 |
+| Left out — no image | 4 |
+| Left out — not a food product on Open Food Facts | 3 |
+| Real discounts below a recorded MRP | 44 |
+| With a Nutri-Score / ingredients / nutrition / allergens | 196 / 237 / 240 / 148 |
+| Prices | ₹5 – ₹3,766.68, observed 23 Nov 2023 – 26 Sep 2026 |
+
+Three products chosen at random were re-derived from the live APIs, bypassing the import's cache: all three matched on name, price, MRP and observation date.
+
+These numbers move with the sources — the price feed returned one product fewer between two runs an hour apart. That is what live data does.
+
+---
+
+## 2026-09-26 — Product images come from Open Food Facts' own host
+
+**Chosen:** the import accepts an image only if it is an `https://images.openfoodfacts.org/` URL, and `next.config.ts` allows exactly that host for the catalog.
+
+**Why enforced rather than assumed:** `next/image` throws at render for a host that is not allowed, so one off-host URL would crash a product page. All 791 image URLs in the source are on that host today; the check makes sure a future import cannot break a page.
+
+**Known limitation, measured:** the image host is sometimes slow. In testing, one first-time fetch exceeded Next's seven-second optimisation limit and showed as missing; a retry succeeded, and twelve further first-time fetches took a median of 0.7 s. Once optimised, an image is cached. The timeout is left at its default — raising it only makes a slow page wait longer.
+
+---
+
+## 2026-09-27 — An original editorial identity replaces the marketplace layout
+
+**Supersedes:** "Marketplace density over editorial layout", "Modular home page", "Product cards stay information-rich" and "'A-to-Z' is a browse affordance" (all 2026-09-20).
+
+**Chosen:** the frontend is rebuilt around its own identity rather than a marketplace template:
+
+| | |
+|---|---|
+| Palette | Warm paper (`#f6f2ea`), near-black ink (`#1d1a16`) and one accent, vermilion (`#d4481c` / `#b3390f`). Light only, as before. |
+| Type | Fraunces for display headings, Geist for text, Geist Mono for every money figure, barcode and order number. |
+| Header | One row: wordmark, three editorial entry points (Aisles, Price watch, Most scanned), search, account, bag. The category nav strip is gone. |
+| Home | A masthead with a real headline, a cover of the four most-scanned products, then numbered sections: 01 Price watch, 02 Most scanned (a ranked list, not a rail), 03 The aisles (an alphabetical table of contents), 04 New to the shelf, and a Nutri-Score explainer. |
+| Cards | Image, Nutri-Score, discount, brand, name, pack size, price. Nothing else. |
+| Product page | The full A–E Nutri-Score scale, the price with the date it was seen, and a food-label nutrition panel. |
+
+**Why:** 8x changed the requirement from a clone to an original interface. Re-skinning was not enough: the old layout's shape — two-row header with a category strip, deals modules, horizontal rails, dense cards — was Amazon's information architecture in new colours. The new structure starts from what the data actually is after the Open Food Facts migration: packaged food, a label, a shelf price and the date someone saw it. Numbered sections and an aisle directory give the page a reading order instead of a merchandising grid.
+
+**Cards got lighter, not emptier:** the old card carried rating, delivery date and stock. None of those exist any more (see the 2026-09-26 entries), and the ones that replaced them — Nutri-Score and a real discount — are on the card.
+
+**Removed:** `az-index`, `az-promo`, `category-strip`, `deal-card`, `deals-module`, `product-rail`. The A-to-Z principle is now the aisle directory, sorted A to Z.
+
+**Rejected:** *keeping the layout and changing the palette* — the same page in different colours is still the same page. *A dark theme* — the light-only decision stands.
+
+---
+
+## 2026-09-27 — The receipt motif is reserved for money
+
+**Chosen:** the bag summary, checkout summary, order confirmation, order details and order-history cards are drawn as receipts: a torn zig-zag bottom edge, dotted leaders, and figures in a monospaced column. It appears nowhere else.
+
+**Why:** it is the one recognisable motif in the identity, and it has a job — aligned mono figures are easier to check than proportional ones. Confining it to surfaces where money is totalled keeps it meaningful.
+
+**How:** a CSS mask on one `.receipt` class — no images, no SVG, and the page background shows through the teeth whatever it is.
+
+---
+
+## 2026-09-27 — "Bag" in the interface, "cart" in the code
+
+**Chosen:** shoppers see "bag" — "Add to bag", "Your bag", the header badge. Routes (`/cart`), the cookie, tables and code keep "cart".
+
+**Why:** voice, not necessity; "cart" is generic rather than Amazon's. Keeping the change to copy makes it cheap to reverse and avoids renaming routes that people may have bookmarked.
+
+---
+
+## 2026-09-27 — The home page `<h1>` is visible now
+
+**Supersedes:** "A visually hidden `<h1>` on the home page" (2026-09-20).
+
+**Chosen:** the masthead headline, "Real groceries, at real shelf prices.", is the page's `<h1>`. The hidden one is gone.
+
+**Why:** the old one was hidden because the design had no title to show. The redesign opens with one, so the outline and the page now say the same thing.
+
+---
+
+## 2026-09-27 — Contrast is measured, and form fields got a real border
+
+**Chosen:** every new colour pair was computed against WCAG 2.2 rather than judged by eye:
+
+| Pair | Ratio | Needs |
+|---|---|---|
+| Ink on paper | 15.5:1 | 4.5:1 |
+| Muted text on paper / on the image well | 5.99:1 / 5.43:1 | 4.5:1 |
+| Vermilion links (`brand-600`) on white / on paper | 5.89:1 / 5.36:1 | 4.5:1 |
+| Field border (`--border-field`) on white / on paper | 3.40:1 / 3.05:1 | 3:1 |
+| Focus ring (`brand-500`) on paper / on ink panels | 3.97:1 / 3.91:1 | 3:1 |
+| Nutri-Score letters on their official colours (E darkened from `#E63E11` to `#D83A0F`) | 4.63:1 at worst | 4.5:1 |
+
+**The fix it found:** inputs, selects and payment options had always used the decorative hairline colour — 1.24:1 against white in the old design, a text field whose edge most people could barely see. WCAG 1.4.11 asks 3:1 for the boundary of a control. They now use a separate `--border-field` token; the hairline stays for dividers, where it is decoration.
+
+---
+
+## 2026-09-27 — Accessibility fixes made during the redesign
+
+- **Phone header:** the account and bag controls collapse to icons, but their text stays in the accessibility tree (`sr-only sm:not-sr-only`, `aria-label="Bag, 3 items"`), so a screen reader never meets an unnamed icon.
+- **Password hint:** "At least 6 characters" was visible but not connected to the field. It is now linked with `aria-describedby`.
+- **Mobile menu:** a native `<details>` element — it opens, closes and is announced without JavaScript.
+- **Search:** has an explicit, labelled submit button instead of relying on the Enter key.
+- **Nutri-Score:** never colour alone — the letter is always shown and the chip carries its meaning as text.
+- **Checkout steps:** the current step is marked `aria-current="step"`, and each part of the form is a numbered `<fieldset>` with a `<legend>`.
+
+---
+
+## 2026-09-27 — Buttons are class functions, errors share one panel
+
+**Chosen:** `components/ui.tsx` exports `button(variant, size)`, which returns a class string, plus a few small presentational pieces (`PageTitle`, `Price`, `Receipt`, `ReceiptRow`). All nine `error.tsx` boundaries render one `ErrorPanel`.
+
+**Why a function and not a `<Button>`:** the same look is applied to `<Link>`, `<button>` and form submit buttons. A component would need a polymorphic `as` prop to cover all three; a class string does not.
+
+**Why one error panel:** the nine boundaries were nine copies of the same markup with different words. Restyling them meant nine identical edits, so the markup now lives once and each boundary passes only its words.
+
+---
+
+## 2026-09-27 — Product images load directly from Open Food Facts
+
+**Supersedes** the "timeout left at its default" part of "Product images come from Open Food Facts' own host" (2026-09-26).
+
+**Chosen:** `images.unoptimized: true`. Browsers fetch product images straight from `images.openfoodfacts.org`.
+
+**Why:** the redesign's visual review hit the limitation recorded the day before, repeatedly — several product images broke with "upstream image response timed out". The optimiser gives up at seven seconds and the image is then missing; loaded directly, a slow image is only slow. And the optimiser gained little here: Open Food Facts already serves pre-sized 400px JPEGs.
+
+**Cost, accepted:** no WebP/AVIF conversion, and no per-width `srcset`. At 400px source images, both would save little.
+
+**Note:** only the optimiser enforces `remotePatterns`, so the host list is inert while this is on. The import's own host check is what guarantees every catalog image comes from Open Food Facts. The list stays so that turning the optimiser back on is a one-line change.
+
+---
+
+## 2026-09-27 — "Shelf prices", not "receipt prices"
+
+**Found while writing the redesign's copy:** the README and one earlier entry here said Blaze is priced "from real receipts". The imported data says otherwise: 334 of the 335 price observations are price tags photographed on a shelf, and one is a receipt.
+
+**Chosen:** the wording is now "shelf prices, photographed in real shops and recorded on Open Prices", in the README, this file, code comments and the product page ("Shelf price seen in a shop on …").
+
+---
+
+## 2026-09-27 — A flaky order-number test, fixed by arithmetic
+
+**Found:** "real calls are random" drew 500 order numbers and asserted all 500 suffixes differ. It failed once during this milestone and passed on every rerun.
+
+**Why it was flaky:** 500 draws from 31⁵ (28.6 million) suffixes collide by the birthday paradox about 0.44% of the time — roughly once every 230 runs. The test was asserting something the generator does not promise.
+
+**Chosen:** 40 draws, which collide 0.003% of the time and still catch a generator that is constant or barely random. Uniqueness is the database's job — a unique index plus a retry — and that is covered by `tests/orders.integration.ts`.
+
+---
+
+## 2026-09-27 — Price records with a placeholder MRP are rejected
+
+**Found:** "Ultra milk full cream" (Ultrajaya, 250 ml) led Price watch at −100%. Its only Open Prices record (#163721, a price tag) gives 9,999,999 as the pre-discount price, against a price of ₹3,766.68. It also set the top of the search price range.
+
+**Chosen:** `isUsableObservation` rejects any record whose pre-discount price is more than **10× its price** (`MAX_MRP_MULTIPLE` in `scripts/catalog-source.ts`). 10× is a 90% markdown.
+
+**Why 10×:** measured against all 55 discounted rupee records. The largest real markdowns are 5.1× (₹49 against ₹250), 3.7× and 2.9×; the placeholder is 2,655×. Nothing lies between 5.1× and 2,655×, so 10× leaves double headroom above the largest real markdown.
+
+**Rejected:** *matching runs of nines* — catches 9,999,999 but not 1,000,000 or a slipped decimal. *An absolute rupee cap* — ties the rule to today's catalog.
+
+**Why the whole record, not just its MRP (Aniket's call):** a record with a placeholder in one field is not trusted for the others — and this one's price, ₹3,766.68 for 250 ml of milk, was higher than a 907 g tub of whey. Dropping only the MRP would have kept it as the catalog's most expensive item. A product whose latest record is rejected falls back to its next usable one; this product had none, so it left the catalog like any other product without a usable price. It was in no bag and on no order.
+
+**Affects:** 1 of 335 price records, 1 of 265 products. No other product's price, MRP or date changed. The import now prints every record the rule rejects.
+
+**Corrects** "What the import produced" (2026-09-26): 43 real discounts, not 44; prices run ₹5 – ₹3,099.
+
+---
+
+## 2026-09-27 — The price feed is paged by id, not by date
+
+**Found while applying the rule above:** consecutive dry runs disagreed — 316 products observed in one, 315 in the next. The importer paged Open Prices sorted by date, which many records share. At the boundary after record 300, two records dated 14 Dec 2024 came back in a different order from one request to the next, so one could be served twice and the other never. In two of three test reads, one was.
+
+**What it had already cost:** the first import (2026-09-26) missed #59048, the only price for **Fresh Paneer** (₹120), a product that meets every catalog rule. The "one product fewer between two runs" noted in "What the import produced" was this bug, not the live data moving. The other record on that date is the only price for Paper Boat Zero Sparkling Coffee, so any re-import could as easily have deleted that product.
+
+**Chosen:** page by `-id`, which is unique, and skip an id already seen. After the read, the number of distinct records must equal the total the API reports, or the import stops — a record added or removed mid-read shifts the pages, and the sync deletes every product it does not see.
+
+**Verified:** two reads by id returned identical records; three dry runs and the import all saw the same 335. The re-import ran after a backup of `products` and `categories` (`backups/2026-09-27-pre-mrp-rule`, gitignored). Result: Ultra milk removed, Fresh Paneer added, the other 264 rows unchanged in every column — still 265 products in 17 aisles.

@@ -1,85 +1,37 @@
-const rupees = new Intl.NumberFormat("en-IN", {
+const wholeRupees = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
   maximumFractionDigits: 0,
 });
 
-/** Money is stored as integer paise; display it as whole rupees. */
+const rupeesAndPaise = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
+ * Money is stored as integer paise. Whole rupees display as `₹120`; anything
+ * else keeps its paise, `₹3,766.68`, because a real shelf price is shown as it
+ * was recorded — and because rounding each line separately would let a cart
+ * show lines that do not add up to its total.
+ */
 export function formatPrice(paise: number): string {
-  return rupees.format(Math.round(paise / 100));
+  return paise % 100 === 0 ? wholeRupees.format(paise / 100) : rupeesAndPaise.format(paise / 100);
 }
 
-/**
- * DummyJSON ships one of six fixed shipping strings, so this is an exact map
- * rather than string parsing. Values are calendar days.
- */
-const SHIPPING_DAYS: Record<string, [number, number]> = {
-  "Ships overnight": [1, 1],
-  "Ships in 1-2 business days": [1, 2],
-  "Ships in 3-5 business days": [3, 5],
-  "Ships in 1 week": [7, 7],
-  "Ships in 2 weeks": [14, 14],
-  "Ships in 1 month": [30, 30],
-};
-
-const dayMonth = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" });
-const weekdayDayMonth = new Intl.DateTimeFormat("en-IN", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-});
-
-function addDays(from: Date, days: number): Date {
-  const d = new Date(from);
-  d.setDate(d.getDate() + days);
-  return d;
+/** Whole-percent saving against the MRP, or 0 when there is none. */
+export function discountPercent(pricePaise: number, mrpPaise: number): number {
+  if (mrpPaise <= pricePaise || mrpPaise <= 0) return 0;
+  return Math.round(((mrpPaise - pricePaise) / mrpPaise) * 100);
 }
 
-/**
- * A concrete arrival date, shown early and everywhere. Amazon buries this
- * until you are deep in the funnel; we put it on the card.
- */
-export function deliveryEstimate(shippingInformation: string, from: Date = new Date()): string {
-  const range = SHIPPING_DAYS[shippingInformation];
-  if (!range) return shippingInformation;
-
-  const [min, max] = range;
-  if (min === max) return `Arrives ${weekdayDayMonth.format(addDays(from, min))}`;
-  return `Arrives ${dayMonth.format(addDays(from, min))} – ${dayMonth.format(addDays(from, max))}`;
+export function discountLabel(pricePaise: number, mrpPaise: number): string {
+  return `${discountPercent(pricePaise, mrpPaise)}% off`;
 }
 
-export function discountLabel(discountPercentage: number): string {
-  return `${Math.round(discountPercentage)}% off`;
-}
-
-const reviewDate = new Intl.DateTimeFormat("en-IN", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-
-export function formatReviewDate(date: Date): string {
-  return reviewDate.format(date);
-}
-
-/**
- * The shipping class a whole order arrives on: the slowest of its lines.
- * Unknown strings sort last so an unrecognised class is never optimistic.
- */
-export function slowestShipping(infos: string[]): string | null {
-  let slowest: string | null = null;
-  let worst = -1;
-  for (const info of infos) {
-    const days = SHIPPING_DAYS[info]?.[1] ?? Infinity;
-    if (days > worst) {
-      worst = days;
-      slowest = info;
-    }
-  }
-  return slowest;
-}
-
-const orderDate = new Intl.DateTimeFormat("en-IN", {
+const dayMonthYear = new Intl.DateTimeFormat("en-IN", {
   day: "numeric",
   month: "short",
   year: "numeric",
@@ -87,5 +39,20 @@ const orderDate = new Intl.DateTimeFormat("en-IN", {
 
 /** When an order was placed: "20 Sep 2026". */
 export function formatOrderDate(date: Date): string {
-  return orderDate.format(date);
+  return dayMonthYear.format(date);
+}
+
+const calendarDate = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+/**
+ * A calendar date with no time, such as "2025-09-13", as "13 Sep 2025". Read
+ * in UTC so the day never shifts with the server's timezone.
+ */
+export function formatCalendarDate(isoDate: string): string {
+  return calendarDate.format(new Date(`${isoDate}T00:00:00Z`));
 }

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { signOut } from "@/lib/actions/auth";
+import { FlameMark } from "./icons";
+import { button } from "./ui";
 
 /**
  * Shown instead of the form when a signed-in shopper opens /signin or /signup.
@@ -15,31 +17,23 @@ import { signOut } from "@/lib/actions/auth";
  */
 export function AlreadySignedIn({ email }: { email: string }) {
   return (
-    <div className="mx-auto w-full max-w-sm text-center">
-      <h1 className="text-2xl font-semibold tracking-tight">You&apos;re signed in</h1>
-      <p className="mt-2 text-sm text-muted">
+    <div className="mx-auto w-full max-w-md text-center">
+      <FlameMark className="mx-auto h-8 w-8 text-brand-500" />
+      <h1 className="mt-4 font-display text-4xl tracking-tight">You&apos;re signed in</h1>
+      <p className="mt-3 text-[15px] text-muted">
         Signed in as <span className="font-medium text-foreground">{email}</span>.
       </p>
-      <div className="mt-6 flex justify-center gap-3">
-        <Link
-          href="/"
-          className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
-        >
+      <div className="mt-7 flex flex-wrap justify-center gap-3">
+        <Link href="/" className={button("primary")}>
           Keep shopping
         </Link>
-        <Link
-          href="/cart"
-          className="rounded-full border border-border-subtle px-5 py-2.5 text-sm font-medium transition-colors hover:bg-surface"
-        >
-          Your cart
+        <Link href="/cart" className={button("secondary")}>
+          Your bag
         </Link>
       </div>
 
-      <form action={signOut} className="mt-4">
-        <button
-          type="submit"
-          className="text-[13px] font-medium text-muted underline underline-offset-2 transition-colors hover:text-foreground"
-        >
+      <form action={signOut} className="mt-6 border-t border-border-subtle pt-5">
+        <button type="submit" className={button("quiet")}>
           Sign out
         </button>
       </form>

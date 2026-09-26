@@ -168,8 +168,7 @@ export type CheckoutLine = {
  *  the shopper is told what to fix rather than "something went wrong". */
 export type CheckoutProblem =
   | { kind: "gone"; title: string }
-  | { kind: "out-of-stock"; title: string }
-  | { kind: "over-stock"; title: string; available: number; requested: number };
+  | { kind: "over-limit"; title: string; limit: number; requested: number };
 
 export type CheckoutQuote = {
   lines: CheckoutLine[];
@@ -178,16 +177,13 @@ export type CheckoutQuote = {
   subtotalPaise: number;
   deliveryPaise: number;
   totalPaise: number;
-  arrivesBy: string | null;
 };
 
 export function problemText(problem: CheckoutProblem): string {
   switch (problem.kind) {
     case "gone":
       return `${problem.title} is no longer in our catalog.`;
-    case "out-of-stock":
-      return `${problem.title} is out of stock.`;
-    case "over-stock":
-      return `Only ${problem.available} of ${problem.title} left — your cart has ${problem.requested}.`;
+    case "over-limit":
+      return `You can order up to ${problem.limit} of ${problem.title} — your cart has ${problem.requested}.`;
   }
 }

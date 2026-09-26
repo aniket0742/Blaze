@@ -29,3 +29,6 @@ next-env.d.ts
 .DS_Store
 *.pem
 npm-debug.log*
+
+# Database backups contain order PII (names, addresses, phones). Never commit.
+/backups

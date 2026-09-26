@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { addToCart } from "@/lib/actions/cart";
 import { MAX_PER_LINE, type AddToCartResult } from "@/lib/cart";
 import { useSession } from "./session-provider";
+import { button, field } from "./ui";
 
 type Feedback =
   | { tone: "ok"; title: string; detail: string }
@@ -12,7 +13,7 @@ type Feedback =
   | { tone: "error"; title: string; detail: string };
 
 function itemsLabel(n: number): string {
-  return `${n} ${n === 1 ? "item" : "items"} in your cart`;
+  return `${n} ${n === 1 ? "item" : "items"} in your bag`;
 }
 
 function feedbackFor(result: AddToCartResult): Feedback {
@@ -20,57 +21,40 @@ function feedbackFor(result: AddToCartResult): Feedback {
     case "added":
       return {
         tone: "ok",
-        title: "Added to cart",
+        title: "Added to your bag",
         detail: `${result.lineQty} of this item · ${itemsLabel(result.cartQty)}`,
       };
     case "capped":
       return {
         tone: "warn",
-        title:
-          result.reason === "stock"
-            ? `Only ${result.lineQty} in stock — that's what we added`
-            : `Limited to ${MAX_PER_LINE} per order`,
+        title: `Limited to ${MAX_PER_LINE} per order`,
         detail: `${result.lineQty} of this item · ${itemsLabel(result.cartQty)}`,
       };
     case "unavailable":
       return {
         tone: "error",
-        title: "This item just went out of stock",
+        title: "This item is no longer available",
         detail: "Nothing was added to your cart.",
       };
   }
 }
 
 const TONES: Record<Feedback["tone"], string> = {
-  ok: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  warn: "border-amber-200 bg-amber-50 text-amber-900",
-  error: "border-red-200 bg-red-50 text-red-800",
+  ok: "border-emerald-700 bg-emerald-50 text-emerald-900",
+  warn: "border-amber-600 bg-amber-50 text-amber-900",
+  error: "border-red-700 bg-red-50 text-red-900",
 };
 
 /**
- * Quantity selector plus the Add to Cart button. The server action returns the
+ * Quantity selector plus the Add to bag button. The server action returns the
  * resulting line and cart quantities, which is what the confirmation reports —
  * so the page itself never has to read the cart and can stay prerendered.
  */
-export function AddToCart({ productId, stock }: { productId: number; stock: number }) {
+export function AddToCart({ productId }: { productId: number }) {
   const { setCartCount } = useSession();
   const [qty, setQty] = useState(1);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [pending, startTransition] = useTransition();
-
-  const max = Math.min(stock, MAX_PER_LINE);
-
-  if (stock < 1) {
-    return (
-      <button
-        type="button"
-        disabled
-        className="w-full cursor-not-allowed rounded-full border border-border-subtle bg-surface px-5 py-3 text-sm font-medium text-muted"
-      >
-        Out of stock
-      </button>
-    );
-  }
 
   function submit() {
     startTransition(async () => {
@@ -81,7 +65,7 @@ export function AddToCart({ productId, stock }: { productId: number; stock: numb
       } catch {
         setFeedback({
           tone: "error",
-          title: "Couldn't add to cart",
+          title: "Couldn't add that to your bag",
           detail: "Something went wrong on our side. Try again.",
         });
       }
@@ -90,42 +74,33 @@ export function AddToCart({ productId, stock }: { productId: number; stock: numb
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <label htmlFor="qty" className="text-[13px] text-muted">
-          Quantity
-        </label>
-        <select
-          id="qty"
-          value={qty}
-          onChange={(e) => setQty(Number(e.target.value))}
-          className="h-11 rounded-xl border border-border-subtle bg-background px-3 text-sm outline-none focus:border-brand-400"
-        >
-          {Array.from({ length: max }, (_, i) => i + 1).map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
+      <div className="flex gap-3">
+        <div className="w-24 shrink-0">
+          <label htmlFor="qty" className="sr-only">
+            Quantity
+          </label>
+          <select id="qty" value={qty} onChange={(e) => setQty(Number(e.target.value))} className={`${field} h-12`}>
+            {Array.from({ length: MAX_PER_LINE }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                Qty {n}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button type="button" onClick={submit} disabled={pending} className={`${button("primary", "lg")} flex-1`}>
+          {pending ? "Adding…" : "Add to bag"}
+        </button>
       </div>
-
-      <button
-        type="button"
-        onClick={submit}
-        disabled={pending}
-        className="w-full rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-70"
-      >
-        {pending ? "Adding…" : "Add to cart"}
-      </button>
 
       {/* Always mounted so the confirmation is announced, not just painted. */}
       <div role="status" aria-live="polite">
         {feedback && (
-          <div className={`rounded-xl border px-3.5 py-2.5 text-[13px] ${TONES[feedback.tone]}`}>
-            <p className="font-medium">{feedback.title}</p>
-            <p className="mt-0.5 opacity-80">{feedback.detail}</p>
+          <div className={`rounded-md border-l-4 px-4 py-3 text-[14px] ${TONES[feedback.tone]}`}>
+            <p className="font-semibold">{feedback.title}</p>
+            <p className="mt-0.5">{feedback.detail}</p>
             {feedback.tone !== "error" && (
-              <Link href="/cart" className="mt-1 inline-block font-medium underline underline-offset-2">
-                View cart
+              <Link href="/cart" className="mt-1.5 inline-block font-medium underline underline-offset-2">
+                Go to your bag
               </Link>
             )}
           </div>

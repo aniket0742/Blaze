@@ -14,10 +14,7 @@ import {
 } from "@/lib/checkout";
 import { formatPrice } from "@/lib/format";
 import { DemoPayment } from "./demo-payment";
-
-const field =
-  "mt-1 h-11 w-full rounded-xl border border-border-subtle bg-background px-3 text-sm outline-none focus:border-brand-400 aria-[invalid=true]:border-red-400";
-const card = "rounded-2xl border border-border-subtle bg-background p-4 shadow-card sm:p-5";
+import { button, field } from "./ui";
 
 function Field({
   name,
@@ -42,11 +39,11 @@ function Field({
         defaultValue={state.values[name]}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${name}-error` : undefined}
-        className={field}
+        className={`${field} mt-1.5`}
         {...input}
       />
       {error && (
-        <span id={`${name}-error`} className="mt-1 block text-[12px] font-normal text-red-700">
+        <span id={`${name}-error`} className="mt-1.5 block text-[13px] font-normal text-red-800">
           {error}
         </span>
       )}
@@ -54,14 +51,29 @@ function Field({
   );
 }
 
+/** A numbered part of the form, set like the home page's sections. */
+function Part({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="border-t border-border-subtle pt-6">
+      <legend className="float-left flex w-full items-baseline gap-3">
+        <span aria-hidden className="font-mono text-[13px] text-brand-600">
+          {n}
+        </span>
+        <span className="font-display text-2xl tracking-tight">{title}</span>
+      </legend>
+      <div className="clear-both pt-5">{children}</div>
+    </fieldset>
+  );
+}
+
 function AddressFields({ state }: { state: CheckoutState }) {
   const stateError = state.errors.state;
   return (
-    <fieldset className={card}>
-      <legend className="px-1 text-sm font-semibold tracking-tight">Delivery address</legend>
-
-      <div className="mt-1 space-y-3">
-        <Field name="fullName" label="Full name" state={state} required autoComplete="name" />
+    <Part n="01" title="Delivery address">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <Field name="fullName" label="Full name" state={state} required autoComplete="name" />
+        </div>
         <Field
           name="phone"
           label="Phone number"
@@ -73,73 +85,65 @@ function AddressFields({ state }: { state: CheckoutState }) {
           placeholder="10-digit mobile number"
         />
         <Field
-          name="addressLine1"
-          label="Address"
+          name="postalCode"
+          label="PIN code"
           state={state}
           required
-          autoComplete="address-line1"
-          placeholder="Flat, house no., building, street"
+          inputMode="numeric"
+          maxLength={6}
+          autoComplete="postal-code"
+          placeholder="560001"
         />
-        <Field
-          name="addressLine2"
-          label="Landmark or area"
-          state={state}
-          optional
-          autoComplete="address-line2"
-        />
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field name="city" label="City" state={state} required autoComplete="address-level2" />
-
-          <label htmlFor="state" className="block text-[13px] font-medium">
-            State
-            <select
-              id="state"
-              name="state"
-              required
-              defaultValue={state.values.state}
-              aria-invalid={stateError ? true : undefined}
-              aria-describedby={stateError ? "state-error" : undefined}
-              autoComplete="address-level1"
-              className={field}
-            >
-              <option value="">Select a state</option>
-              {INDIAN_STATES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            {stateError && (
-              <span id="state-error" className="mt-1 block text-[12px] font-normal text-red-700">
-                {stateError}
-              </span>
-            )}
-          </label>
-        </div>
-
-        <div className="sm:max-w-[200px]">
+        <div className="sm:col-span-2">
           <Field
-            name="postalCode"
-            label="PIN code"
+            name="addressLine1"
+            label="Address"
             state={state}
             required
-            inputMode="numeric"
-            maxLength={6}
-            autoComplete="postal-code"
-            placeholder="560001"
+            autoComplete="address-line1"
+            placeholder="Flat, house no., building, street"
           />
         </div>
+        <div className="sm:col-span-2">
+          <Field name="addressLine2" label="Landmark or area" state={state} optional autoComplete="address-line2" />
+        </div>
+        <Field name="city" label="City" state={state} required autoComplete="address-level2" />
+
+        <label htmlFor="state" className="block text-[13px] font-medium">
+          State
+          <select
+            id="state"
+            name="state"
+            required
+            defaultValue={state.values.state}
+            aria-invalid={stateError ? true : undefined}
+            aria-describedby={stateError ? "state-error" : undefined}
+            autoComplete="address-level1"
+            className={`${field} mt-1.5`}
+          >
+            <option value="">Select a state</option>
+            {INDIAN_STATES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          {stateError && (
+            <span id="state-error" className="mt-1.5 block text-[13px] font-normal text-red-800">
+              {stateError}
+            </span>
+          )}
+        </label>
       </div>
-    </fieldset>
+    </Part>
   );
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap justify-between gap-x-4 gap-y-0.5 py-1.5">
-      <dt className="text-[13px] text-muted">{label}</dt>
-      <dd className="text-[13px] font-medium">{children}</dd>
+    <div className="grid gap-1 py-3 sm:grid-cols-[9rem_1fr] sm:gap-4">
+      <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted sm:pt-0.5">{label}</dt>
+      <dd className="text-[15px]">{children}</dd>
     </div>
   );
 }
@@ -150,37 +154,57 @@ function ReviewPanel({ values, quote }: { values: CheckoutValues; quote: Checkou
   const payment = isPaymentMethod(values.payment) ? PAYMENT_LABELS[values.payment] : "—";
 
   return (
-    <div className={card}>
-      <h2 className="text-sm font-semibold tracking-tight">Review your order</h2>
-
+    <Part n="02" title="Review your order">
       {(Object.keys(values) as CheckoutField[]).map((key) => (
         <input key={key} type="hidden" name={key} value={values[key]} />
       ))}
 
-      <dl className="mt-2 divide-y divide-border-subtle">
+      <dl className="divide-y divide-border-subtle border-y border-border-subtle">
         <Row label="Deliver to">
-          <span className="block max-w-xs text-right sm:text-left">
-            {values.fullName}
-            <span className="block font-normal text-muted">
-              {values.addressLine1}
-              {values.addressLine2 ? `, ${values.addressLine2}` : ""}, {values.city}, {values.state}{" "}
-              {values.postalCode}
-            </span>
-            <span className="block font-normal text-muted">{values.phone}</span>
+          <span className="block font-medium">{values.fullName}</span>
+          <span className="block text-muted">
+            {values.addressLine1}
+            {values.addressLine2 ? `, ${values.addressLine2}` : ""}, {values.city}, {values.state} {values.postalCode}
           </span>
+          <span className="block text-muted">{values.phone}</span>
         </Row>
         <Row label="Payment">{payment}</Row>
         <Row label="Items">
           {quote.totalQty} {quote.totalQty === 1 ? "item" : "items"}
         </Row>
-        {quote.arrivesBy && <Row label="Delivery">{quote.arrivesBy.replace(/^Arrives /, "")}</Row>}
       </dl>
 
-      <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-border-subtle pt-3">
-        <span className="text-sm font-semibold">Total to pay</span>
-        <span className="text-lg font-semibold tabular-nums">{formatPrice(quote.totalPaise)}</span>
+      <div className="mt-4 flex items-baseline justify-between gap-3">
+        <span className="font-display text-xl">Total to pay</span>
+        <span className="font-mono text-2xl font-semibold tabular-nums">{formatPrice(quote.totalPaise)}</span>
       </div>
-    </div>
+    </Part>
+  );
+}
+
+/** Which of the two steps you are on. */
+function Steps({ reviewing }: { reviewing: boolean }) {
+  const steps = ["Your details", "Review and place"];
+  return (
+    <ol className="mb-8 flex items-center gap-3 text-[13px]" aria-label="Checkout steps">
+      {steps.map((label, i) => {
+        const current = (i === 1) === reviewing;
+        const done = i === 0 && reviewing;
+        return (
+          <li key={label} className="flex items-center gap-3" aria-current={current ? "step" : undefined}>
+            <span
+              className={`flex h-7 w-7 items-center justify-center rounded-full font-mono text-[12px] ${
+                current ? "bg-foreground text-page" : done ? "bg-brand-600 text-white" : "border border-border-field text-muted"
+              }`}
+            >
+              {done ? "✓" : i + 1}
+            </span>
+            <span className={current ? "font-medium" : "text-muted"}>{label}</span>
+            {i === 0 && <span aria-hidden className="h-px w-8 bg-border-field sm:w-16" />}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -188,39 +212,40 @@ function ReviewPanel({ values, quote }: { values: CheckoutValues; quote: Checkou
  * Address, payment and review in one form. The step comes from the server
  * action's returned state rather than from client state, so the whole flow
  * survives JavaScript being off — the same reason the auth form is built
- * this way. `blocked` is set when the cart cannot currently be ordered.
+ * this way. `blocked` is set when the bag cannot currently be ordered.
  */
 export function CheckoutForm({ quote, blocked }: { quote: CheckoutQuote; blocked: boolean }) {
   const [state, formAction, pending] = useActionState(placeOrder, CHECKOUT_IDLE);
   const reviewing = state.phase === "review";
 
   return (
-    <form action={formAction} className="space-y-4">
-      {reviewing ? (
-        <ReviewPanel values={state.values} quote={quote} />
-      ) : (
-        <>
-          <AddressFields state={state} />
-          <DemoPayment selected={state.values.payment} error={state.errors.payment} />
-        </>
-      )}
+    <form action={formAction}>
+      <Steps reviewing={reviewing} />
+
+      <div className="space-y-8">
+        {reviewing ? (
+          <ReviewPanel values={state.values} quote={quote} />
+        ) : (
+          <>
+            <AddressFields state={state} />
+            <DemoPayment selected={state.values.payment} error={state.errors.payment} />
+          </>
+        )}
+      </div>
 
       {state.formError && (
-        <p
-          role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-800"
-        >
+        <p role="alert" className="mt-6 rounded-md border-l-4 border-red-700 bg-red-50 px-4 py-3 text-[14px] text-red-900">
           {state.formError}
         </p>
       )}
 
-      <div className="flex flex-col-reverse gap-2 sm:flex-row-reverse sm:items-center">
+      <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row-reverse sm:items-center">
         <button
           type="submit"
           name="intent"
           value={reviewing ? "place" : "review"}
           disabled={pending || blocked}
-          className="w-full rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:flex-1"
+          className={`${button("primary", "lg")} w-full sm:w-auto sm:flex-1`}
         >
           {pending
             ? reviewing
@@ -238,14 +263,14 @@ export function CheckoutForm({ quote, blocked }: { quote: CheckoutQuote; blocked
             value="edit"
             formNoValidate
             disabled={pending}
-            className="w-full rounded-full border border-border-subtle px-5 py-3 text-sm font-medium transition-colors hover:bg-surface disabled:opacity-60 sm:w-auto"
+            className={`${button("secondary", "lg")} w-full sm:w-auto`}
           >
             Edit details
           </button>
         )}
       </div>
 
-      <p className="text-center text-[12px] text-muted sm:text-right">
+      <p className="mt-3 text-center text-[12px] text-muted sm:text-right">
         Placing an order here charges nothing. Blaze is a demo storefront.
       </p>
     </form>

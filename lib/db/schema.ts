@@ -1,10 +1,10 @@
 import {
+  date,
   index,
   integer,
   jsonb,
   pgTable,
   primaryKey,
-  real,
   serial,
   text,
   timestamp,
@@ -17,58 +17,66 @@ export const categories = pgTable("categories", {
   heroImage: text("hero_image"),
 });
 
+/**
+ * Per-100 g (or per-100 ml) nutrition, exactly as Open Food Facts reports it.
+ * A key is present only when the source has a number for it.
+ */
+export type Nutriments = Partial<
+  Record<"energyKcal" | "fat" | "saturatedFat" | "carbohydrates" | "sugars" | "fiber" | "proteins" | "salt", number>
+>;
+
+/**
+ * The catalog. Every product is a real Open Food Facts product priced from a
+ * real Open Prices observation in rupees — see scripts/seed.ts and
+ * DECISIONS.md. Nothing here is invented: a column the sources do not provide
+ * for a given product is null rather than guessed.
+ */
 export const products = pgTable(
   "products",
   {
-    // DummyJSON's own id, kept so reseeding is stable.
-    id: integer("id").primaryKey(),
+    // Surrogate key, starting above the old DummyJSON range (1–194) so a guest
+    // cart cookie from before the migration can never point at a different
+    // product. The import upserts on `barcode`, so ids are stable across syncs.
+    id: integer("id").primaryKey().generatedByDefaultAsIdentity({ startWith: 1000 }),
+    // The Open Food Facts code. Text, because EAN/UPC codes can start with 0.
+    barcode: text("barcode").notNull().unique(),
     slug: text("slug").notNull().unique(),
     title: text("title").notNull(),
-    description: text("description").notNull(),
+    // Open Food Facts' generic name. Most products do not have one.
+    description: text("description"),
     categorySlug: text("category_slug")
       .notNull()
       .references(() => categories.slug),
     brand: text("brand"),
+    // Pack size as labelled, e.g. "180 ml".
+    quantity: text("quantity"),
     // All money is integer paise. See DECISIONS.md.
     pricePaise: integer("price_paise").notNull(),
+    // The printed MRP when the observation recorded one, otherwise the price.
     mrpPaise: integer("mrp_paise").notNull(),
-    discountPercentage: real("discount_percentage").notNull(),
-    rating: real("rating").notNull(),
-    reviewCount: integer("review_count").notNull().default(0),
-    stock: integer("stock").notNull(),
-    availabilityStatus: text("availability_status").notNull(),
-    sku: text("sku").notNull(),
+    // When the price was seen in a shop, per Open Prices.
+    priceObservedOn: date("price_observed_on", { mode: "string" }).notNull(),
     thumbnail: text("thumbnail").notNull(),
     images: jsonb("images").$type<string[]>().notNull(),
-    tags: jsonb("tags").$type<string[]>().notNull(),
-    weightGrams: real("weight_grams"),
-    dimensions: jsonb("dimensions").$type<{ width: number; height: number; depth: number }>(),
-    warrantyInformation: text("warranty_information"),
-    shippingInformation: text("shipping_information").notNull(),
-    returnPolicy: text("return_policy"),
-    // DummyJSON's meta.createdAt — backs the New Arrivals rail.
+    // a–e, or null when Open Food Facts has not computed one.
+    nutriscoreGrade: text("nutriscore_grade"),
+    // 1–4, or null.
+    novaGroup: integer("nova_group"),
+    labels: jsonb("labels").$type<string[]>().notNull(),
+    allergens: jsonb("allergens").$type<string[]>().notNull(),
+    ingredientsText: text("ingredients_text"),
+    nutriments: jsonb("nutriments").$type<Nutriments>(),
+    // "100g" or "100ml" — what the nutriments are per. Null with no nutriments.
+    nutritionPer: text("nutrition_per"),
+    // Open Food Facts' unique scan count — backs "Most scanned".
+    scanCount: integer("scan_count").notNull().default(0),
+    // When the product entered Open Food Facts — backs New Arrivals.
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("products_category_idx").on(t.categorySlug),
-    index("products_rating_idx").on(t.rating),
     index("products_created_at_idx").on(t.createdAt),
   ],
-);
-
-export const productReviews = pgTable(
-  "product_reviews",
-  {
-    id: serial("id").primaryKey(),
-    productId: integer("product_id")
-      .notNull()
-      .references(() => products.id, { onDelete: "cascade" }),
-    rating: integer("rating").notNull(),
-    comment: text("comment").notNull(),
-    reviewerName: text("reviewer_name").notNull(),
-    reviewedAt: timestamp("reviewed_at", { withTimezone: true }).notNull(),
-  },
-  (t) => [index("product_reviews_product_idx").on(t.productId)],
 );
 
 /**

@@ -5,6 +5,7 @@ import { cache } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { OrderLines } from "@/components/order-lines";
 import { OrderStatusBadge } from "@/components/order-status";
+import { PageTitle, Receipt, ReceiptRow } from "@/components/ui";
 import { PAYMENT_LABELS, isPaymentMethod } from "@/lib/checkout";
 import { formatOrderDate, formatPrice } from "@/lib/format";
 import { arrivalText, type OrderDetailView } from "@/lib/orders";
@@ -19,9 +20,7 @@ const loadOrder = cache(async (orderNumber: string) => {
   return { user, order: await getOrderDetail(orderNumber, user.id) };
 });
 
-export async function generateMetadata({
-  params,
-}: PageProps<"/order/[orderNumber]">): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps<"/order/[orderNumber]">): Promise<Metadata> {
   const { orderNumber } = await params;
   const { order } = await loadOrder(orderNumber);
   return {
@@ -31,78 +30,48 @@ export async function generateMetadata({
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">{children}</div>;
-}
-
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex justify-between gap-3">
-      <dt className="text-muted">{label}</dt>
-      <dd className="text-right font-medium">{value}</dd>
-    </div>
-  );
-}
-
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-border-subtle bg-background p-4 shadow-card sm:p-5">
-      <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
-      {children}
-    </section>
-  );
+  return <div className="mx-auto max-w-6xl px-4 pt-8 sm:px-6">{children}</div>;
 }
 
 function Totals({ order }: { order: OrderDetailView }) {
+  const payment = isPaymentMethod(order.paymentMethod) ? PAYMENT_LABELS[order.paymentMethod] : order.paymentMethod;
+  // Only orders placed before the Open Food Facts migration carry a promised date.
+  const arrives = arrivalText(order.arrivesBy);
   return (
-    <Panel title="Order summary">
-      <dl className="mt-2.5 space-y-2 text-sm">
-        <Row
-          label={`Subtotal (${order.units} ${order.units === 1 ? "item" : "items"})`}
-          value={<span className="tabular-nums">{formatPrice(order.subtotalPaise)}</span>}
+    <Receipt>
+      <p className="text-center font-mono text-[11px] uppercase tracking-[0.3em] text-muted">Blaze · receipt</p>
+      <dl className="mt-4 space-y-2 border-t border-dashed border-border-field pt-4">
+        <ReceiptRow
+          label={`Subtotal, ${order.units} ${order.units === 1 ? "item" : "items"}`}
+          value={formatPrice(order.subtotalPaise)}
         />
-        <Row
+        <ReceiptRow
           label="Delivery"
-          value={
-            order.deliveryPaise === 0 ? (
-              <span className="text-emerald-700">Free</span>
-            ) : (
-              <span className="tabular-nums">{formatPrice(order.deliveryPaise)}</span>
-            )
-          }
+          value={order.deliveryPaise === 0 ? "Free" : formatPrice(order.deliveryPaise)}
         />
-        <div className="flex justify-between gap-3 border-t border-border-subtle pt-2.5 text-base">
-          <dt className="font-semibold">Total paid</dt>
-          <dd className="font-semibold tabular-nums">{formatPrice(order.totalPaise)}</dd>
-        </div>
+      </dl>
+      <dl className="mt-4 border-t border-dashed border-border-field pt-4">
+        <ReceiptRow label="Total paid" value={formatPrice(order.totalPaise)} strong />
       </dl>
       <p className="mt-1 text-[12px] text-muted">Inclusive of all taxes</p>
-    </Panel>
-  );
-}
 
-function Shipping({ order }: { order: OrderDetailView }) {
-  const arrives = arrivalText(order.arrivesBy);
-  const payment = isPaymentMethod(order.paymentMethod)
-    ? PAYMENT_LABELS[order.paymentMethod]
-    : order.paymentMethod;
-
-  return (
-    <Panel title="Delivery">
-      <address className="mt-2.5 text-[13px] not-italic">
-        <span className="block font-medium">{order.fullName}</span>
-        <span className="block text-muted">{order.addressLine1}</span>
-        {order.addressLine2 && <span className="block text-muted">{order.addressLine2}</span>}
-        <span className="block text-muted">
-          {order.city}, {order.state} {order.postalCode}
-        </span>
-        <span className="block text-muted">{order.phone}</span>
-      </address>
-
-      <dl className="mt-3 space-y-2 border-t border-border-subtle pt-3 text-[13px]">
-        {arrives && <Row label="Arriving" value={arrives} />}
-        <Row label="Payment" value={payment} />
-      </dl>
-    </Panel>
+      <div className="mt-5 border-t border-dashed border-border-field pt-4">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">Delivering to</h2>
+        <address className="mt-2 text-[14px] not-italic leading-relaxed">
+          <span className="block font-medium">{order.fullName}</span>
+          <span className="block text-muted">{order.addressLine1}</span>
+          {order.addressLine2 && <span className="block text-muted">{order.addressLine2}</span>}
+          <span className="block text-muted">
+            {order.city}, {order.state} {order.postalCode}
+          </span>
+          <span className="block text-muted">{order.phone}</span>
+        </address>
+        <dl className="mt-3 space-y-2">
+          {arrives && <ReceiptRow label="Arriving" value={arrives} />}
+          <ReceiptRow label="Payment" value={payment} />
+        </dl>
+      </div>
+    </Receipt>
   );
 }
 
@@ -124,12 +93,14 @@ export default async function OrderDetailPage({ params }: PageProps<"/order/[ord
     return (
       <Shell>
         <h1 className="sr-only">Order not found</h1>
-        <EmptyState
-          title="We couldn't find that order"
-          description="There is no order with that number on your account. Check the link, or see all your orders."
-          actionHref="/orders"
-          actionLabel="Your orders"
-        />
+        <div className="mx-auto max-w-2xl">
+          <EmptyState
+            title="We couldn't find that order"
+            description="There is no order with that number on your account. Check the link, or see all your orders."
+            actionHref="/orders"
+            actionLabel="Your orders"
+          />
+        </div>
       </Shell>
     );
   }
@@ -138,46 +109,37 @@ export default async function OrderDetailPage({ params }: PageProps<"/order/[ord
     <Shell>
       <Link
         href="/orders"
-        className="text-[13px] font-medium text-brand-600 hover:underline"
+        className="text-[13px] font-medium underline decoration-border-field underline-offset-4 hover:decoration-foreground"
       >
         ← Your orders
       </Link>
 
-      <header className="mt-3 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Order details</h1>
-          <p className="mt-1 text-[13px] text-muted">
-            Placed {formatOrderDate(order.placedAt)}
+      <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-b border-foreground pb-6">
+        <PageTitle eyebrow={`Placed ${formatOrderDate(order.placedAt)}`} title="Order details">
+          <p>
+            Order <span className="font-mono font-semibold text-foreground">{order.orderNumber}</span>
           </p>
-        </div>
-        <div className="sm:text-right">
-          <p className="text-[11px] uppercase tracking-wide text-muted">Order number</p>
-          <p className="font-mono text-base font-semibold tracking-wide">{order.orderNumber}</p>
-        </div>
-      </header>
-
-      <div className="mt-3">
+        </PageTitle>
         <OrderStatusBadge status={order.status} />
       </div>
 
-      <div className="mt-5 lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-6">
+      <div className="mt-8 lg:grid lg:grid-cols-[1fr_360px] lg:items-start lg:gap-12">
         <div>
           <h2 className="sr-only">Items in this order</h2>
           <OrderLines lines={order.lines} />
-          <p className="mt-2 px-1 text-[12px] text-muted">
+          <p className="mt-3 text-[13px] text-muted">
             Prices are what you paid when you placed this order, not today&apos;s prices.
           </p>
         </div>
 
-        <div className="mt-4 space-y-4 lg:mt-0">
+        <div className="mt-10 lg:mt-0">
           <Totals order={order} />
-          <Shipping order={order} />
         </div>
       </div>
 
-      <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[13px] text-amber-900">
-        <strong className="font-semibold">Demo order.</strong> Nothing was charged and nothing
-        will be shipped. Blaze is a portfolio storefront.
+      <p className="mt-10 max-w-3xl rounded-md border-l-4 border-amber-600 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
+        <strong className="font-semibold">Demo order.</strong> Nothing was charged and nothing will be shipped. Blaze
+        is a portfolio storefront.
       </p>
     </Shell>
   );

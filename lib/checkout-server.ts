@@ -6,7 +6,7 @@
  * title, and nothing it does send is used in the arithmetic.
  */
 import { eq, inArray } from "drizzle-orm";
-import type { CartLine } from "./cart";
+import { MAX_PER_LINE, type CartLine } from "./cart";
 import {
   generateOrderNumber,
   type AddressValues,
@@ -17,7 +17,6 @@ import {
 } from "./checkout";
 import { db } from "./db";
 import { cartItems, orderItems, orders, products } from "./db/schema";
-import { deliveryEstimate, slowestShipping } from "./format";
 
 const EMPTY_QUOTE: CheckoutQuote = {
   lines: [],
@@ -26,7 +25,6 @@ const EMPTY_QUOTE: CheckoutQuote = {
   subtotalPaise: 0,
   deliveryPaise: 0,
   totalPaise: 0,
-  arrivesBy: null,
 };
 
 /**
@@ -34,6 +32,9 @@ const EMPTY_QUOTE: CheckoutQuote = {
  * would make the order wrong. Both the checkout page and the place-order
  * action call this, so what the shopper reviews and what gets written are
  * computed by the same code from the same source.
+ *
+ * Availability is being in the catalog: every product there has a real
+ * current price, and there is no stock data to check against. See DECISIONS.md.
  */
 export async function quoteCart(cart: CartLine[]): Promise<CheckoutQuote> {
   if (cart.length === 0) return EMPTY_QUOTE;
@@ -51,7 +52,6 @@ export async function quoteCart(cart: CartLine[]): Promise<CheckoutQuote> {
 
   const lines: CheckoutLine[] = [];
   const problems: CheckoutProblem[] = [];
-  const shipping: string[] = [];
   let subtotalPaise = 0;
   let totalQty = 0;
 
@@ -61,15 +61,13 @@ export async function quoteCart(cart: CartLine[]): Promise<CheckoutQuote> {
       problems.push({ kind: "gone", title: "An item in your cart" });
       continue;
     }
-    if (product.stock < 1) {
-      problems.push({ kind: "out-of-stock", title: product.title });
-      continue;
-    }
-    if (line.q > product.stock) {
+    // The cart never stores more than the limit; a row that does was not
+    // written by Blaze, and is refused rather than silently trimmed.
+    if (line.q > MAX_PER_LINE) {
       problems.push({
-        kind: "over-stock",
+        kind: "over-limit",
         title: product.title,
-        available: product.stock,
+        limit: MAX_PER_LINE,
         requested: line.q,
       });
       continue;
@@ -88,10 +86,8 @@ export async function quoteCart(cart: CartLine[]): Promise<CheckoutQuote> {
     });
     subtotalPaise += linePaise;
     totalQty += line.q;
-    shipping.push(product.shippingInformation);
   }
 
-  const slowest = slowestShipping(shipping);
   return {
     lines,
     problems,
@@ -100,7 +96,6 @@ export async function quoteCart(cart: CartLine[]): Promise<CheckoutQuote> {
     // Delivery is free on every order, the same model the cart uses.
     deliveryPaise: 0,
     totalPaise: subtotalPaise,
-    arrivesBy: slowest ? deliveryEstimate(slowest) : null,
   };
 }
 
@@ -151,7 +146,6 @@ async function writeOrder(orderNumber: string, input: OrderInput): Promise<boole
         subtotalPaise: quote.subtotalPaise,
         deliveryPaise: quote.deliveryPaise,
         totalPaise: quote.totalPaise,
-        arrivesBy: quote.arrivesBy,
       })
       .onConflictDoNothing({ target: orders.orderNumber })
       .returning({ id: orders.id });
